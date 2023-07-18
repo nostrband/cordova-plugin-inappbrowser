@@ -123,35 +123,56 @@ public class InAppBrowser extends CordovaPlugin {
 
     private static final List customizableOptions = Arrays.asList(CLOSE_BUTTON_CAPTION, TOOLBAR_COLOR, NAVIGATION_COLOR, CLOSE_BUTTON_COLOR, FOOTER_COLOR);
 
-    private InAppBrowserDialog dialog;
-    private WebView inAppWebView;
-    private EditText edittext;
-    private CallbackContext callbackContext;
-    private boolean showLocationBar = true;
-    private boolean showZoomControls = true;
-    private boolean openWindowHidden = false;
-    private boolean clearAllCache = false;
-    private boolean clearSessionCache = false;
-    private boolean hadwareBackButton = true;
-    private boolean mediaPlaybackRequiresUserGesture = false;
-    private boolean shouldPauseInAppBrowser = false;
-    private boolean useWideViewPort = true;
-    private ValueCallback<Uri[]> mUploadCallback;
-    private final static int FILECHOOSER_REQUESTCODE = 1;
-    private String closeButtonCaption = "";
-    private String closeButtonColor = "";
-    private boolean closeButtonHide = false;
-    private boolean leftToRight = false;
-    private int toolbarColor = android.graphics.Color.LTGRAY;
-    private boolean hideNavigationButtons = false;
-    private String navigationButtonColor = "";
-    private boolean hideUrlBar = false;
-    private boolean showFooter = false;
-    private String footerColor = "";
-    private String beforeload = "";
-    private boolean fullscreen = true;
-    private String[] allowedSchemes;
-    private InAppBrowserClient currentClient;
+    private class Tab {
+	String id = "";
+	InAppBrowserDialog dialog;
+	WebView inAppWebView;
+	EditText edittext;
+	CallbackContext callbackContext;
+	boolean showLocationBar = true;
+	boolean showZoomControls = true;
+	boolean openWindowHidden = false;
+	boolean clearAllCache = false;
+	boolean clearSessionCache = false;
+	boolean hardwareBackButton = true;
+	boolean mediaPlaybackRequiresUserGesture = false;
+	boolean shouldPauseInAppBrowser = false;
+	boolean useWideViewPort = true;
+	ValueCallback<Uri[]> mUploadCallback;
+	final static int FILECHOOSER_REQUESTCODE = 1;
+	String closeButtonCaption = "";
+	String closeButtonColor = "";
+	boolean closeButtonHide = false;
+	boolean leftToRight = false;
+	int toolbarColor = android.graphics.Color.LTGRAY;
+	boolean hideNavigationButtons = false;
+	String navigationButtonColor = "";
+	boolean hideUrlBar = false;
+	boolean showFooter = false;
+	String footerColor = "";
+	String beforeload = "";
+	boolean fullscreen = true;
+	String[] allowedSchemes;
+	InAppBrowserClient currentClient;
+    }
+
+    private HashMap<String, Tab> tabs;
+    private Tab tab; // current tab
+
+    private boolean switchTab(final String tabId) {
+	this.tab = tabs.get(tabId);
+	return this.tab != null;
+    }
+
+    private void ensureTab(final String tabId) {
+	Tab tab = tabs.get(tabId);
+	if (tab == null) {
+	    tab = new Tab();
+	    tab.id = tabId;
+	    tabs.put(tabId, tab);
+	}
+	this.tab = tab;
+    }
 
     /**
      * Executes the request and returns PluginResult.
@@ -163,7 +184,10 @@ public class InAppBrowser extends CordovaPlugin {
      */
     public boolean execute(String action, CordovaArgs args, final CallbackContext callbackContext) throws JSONException {
         if (action.equals("open")) {
-            this.callbackContext = callbackContext;
+	    ensureTab(args.optString(3));
+	    final Tab tab = this.tab;
+            tab.callbackContext = callbackContext;
+
             final String url = args.getString(0);
             String t = args.optString(1);
             if (t == null || t.equals("") || t.equals(NULL)) {
@@ -236,7 +260,7 @@ public class InAppBrowser extends CordovaPlugin {
                         // load in InAppBrowser
                         else {
                             LOG.d(LOG_TAG, "loading in InAppBrowser");
-                            result = showWebPage(url, features);
+                            result = showWebPage(tab, url, features);
                         }
                     }
                     // SYSTEM
@@ -247,7 +271,7 @@ public class InAppBrowser extends CordovaPlugin {
                     // BLANK - or anything else
                     else {
                         LOG.d(LOG_TAG, "in blank");
-                        result = showWebPage(url, features);
+                        result = showWebPage(tab, url, features);
                     }
 
                     PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, result);
@@ -257,10 +281,19 @@ public class InAppBrowser extends CordovaPlugin {
             });
         }
         else if (action.equals("close")) {
-            closeDialog();
+	    if (!switchTab(args.optString(0))) {
+                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+		return false;
+            }
+            closeDialog(this.tab);
         }
         else if (action.equals("loadAfterBeforeload")) {
-            if (beforeload == null) {
+	    if (!switchTab(args.optString(1))) {
+                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+		return false;
+            }
+	    final Tab tab = t;
+            if (tab.beforeload == null) {
                 LOG.e(LOG_TAG, "unexpected loadAfterBeforeload called without feature beforeload=yes");
             }
             final String url = args.getString(0);
@@ -269,16 +302,21 @@ public class InAppBrowser extends CordovaPlugin {
                 @Override
                 public void run() {
                     if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) {
-                        currentClient.waitForBeforeload = false;
-                        inAppWebView.setWebViewClient(currentClient);
+                        tab.currentClient.waitForBeforeload = false;
+                        tab.inAppWebView.setWebViewClient(tab.currentClient);
                     } else {
-                        ((InAppBrowserClient)inAppWebView.getWebViewClient()).waitForBeforeload = false;
+                        ((InAppBrowserClient)tab.inAppWebView.getWebViewClient()).waitForBeforeload = false;
                     }
-                    inAppWebView.loadUrl(url);
+                    tab.inAppWebView.loadUrl(url);
                 }
             });
         }
         else if (action.equals("injectScriptCode")) {
+	    if (!switchTab(args.optString(2))) {
+                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+		return false;
+            }
+
             String jsWrapper = null;
             if (args.getBoolean(1)) {
                 jsWrapper = String.format("(function(){prompt(JSON.stringify([eval(%%s)]), 'gap-iab://%s')})()", callbackContext.getCallbackId());
@@ -286,6 +324,11 @@ public class InAppBrowser extends CordovaPlugin {
             injectDeferredObject(args.getString(0), jsWrapper);
         }
         else if (action.equals("injectScriptFile")) {
+	    if (!switchTab(args.optString(2))) {
+                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+		return false;
+            }
+
             String jsWrapper;
             if (args.getBoolean(1)) {
                 jsWrapper = String.format("(function(d) { var c = d.createElement('script'); c.src = %%s; c.onload = function() { prompt('', 'gap-iab://%s'); }; d.body.appendChild(c); })(document)", callbackContext.getCallbackId());
@@ -295,6 +338,11 @@ public class InAppBrowser extends CordovaPlugin {
             injectDeferredObject(args.getString(0), jsWrapper);
         }
         else if (action.equals("injectStyleCode")) {
+	    if (!switchTab(args.optString(2))) {
+                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+		return false;
+            }
+
             String jsWrapper;
             if (args.getBoolean(1)) {
                 jsWrapper = String.format("(function(d) { var c = d.createElement('style'); c.innerHTML = %%s; d.body.appendChild(c); prompt('', 'gap-iab://%s');})(document)", callbackContext.getCallbackId());
@@ -304,6 +352,11 @@ public class InAppBrowser extends CordovaPlugin {
             injectDeferredObject(args.getString(0), jsWrapper);
         }
         else if (action.equals("injectStyleFile")) {
+	    if (!switchTab(args.optString(2))) {
+                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+		return false;
+            }
+
             String jsWrapper;
             if (args.getBoolean(1)) {
                 jsWrapper = String.format("(function(d) { var c = d.createElement('link'); c.rel='stylesheet'; c.type='text/css'; c.href = %%s; d.head.appendChild(c); prompt('', 'gap-iab://%s');})(document)", callbackContext.getCallbackId());
@@ -313,24 +366,33 @@ public class InAppBrowser extends CordovaPlugin {
             injectDeferredObject(args.getString(0), jsWrapper);
         }
         else if (action.equals("show")) {
-            this.cordova.getActivity().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    if (dialog != null && !cordova.getActivity().isFinishing()) {
-                        dialog.show();
-                    }
-                }
-            });
-            PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
-            pluginResult.setKeepCallback(true);
-            this.callbackContext.sendPluginResult(pluginResult);
+	    if (!switchTab(args.optString(2))) {
+                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+		return false;
+            }
+	    final Tab tab = t;
+	    this.cordova.getActivity().runOnUiThread(new Runnable() {
+		    @Override
+		    public void run() {
+			if (tab.dialog != null && !cordova.getActivity().isFinishing()) {
+			    tab.dialog.show();
+			}
+		    }
+		});
+	    PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
+	    pluginResult.setKeepCallback(true);
+	    tab.callbackContext.sendPluginResult(pluginResult);
         }
         else if (action.equals("hide")) {
+	    if (!switchTabs(args.optString(2))) {
+                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+		return false;
+            }
             this.cordova.getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    if (dialog != null && !cordova.getActivity().isFinishing()) {
-                        dialog.hide();
+                    if (tab.dialog != null && !cordova.getActivity().isFinishing()) {
+                        tab.dialog.hide();
                     }
                 }
             });
@@ -349,7 +411,9 @@ public class InAppBrowser extends CordovaPlugin {
      */
     @Override
     public void onReset() {
-        closeDialog();
+	for (Tab tab: tabs.values()) {
+	    closeDialog(tab);
+	}
     }
 
     /**
@@ -357,9 +421,11 @@ public class InAppBrowser extends CordovaPlugin {
      */
     @Override
     public void onPause(boolean multitasking) {
-        if (shouldPauseInAppBrowser) {
-            inAppWebView.onPause();
-        }
+	for (Tab tab: tabs.values()) {
+	    if (tab.shouldPauseInAppBrowser) {
+		tab.inAppWebView.onPause();
+	    }
+	}
     }
 
     /**
@@ -367,9 +433,11 @@ public class InAppBrowser extends CordovaPlugin {
      */
     @Override
     public void onResume(boolean multitasking) {
-        if (shouldPauseInAppBrowser) {
-            inAppWebView.onResume();
-        }
+	for (Tab tab: tabs.values()) {
+	    if (tab.shouldPauseInAppBrowser) {
+		tab.inAppWebView.onResume();
+	    }
+	}
     }
 
     /**
@@ -377,7 +445,9 @@ public class InAppBrowser extends CordovaPlugin {
      * Stop listener.
      */
     public void onDestroy() {
-        closeDialog();
+	for (Tab tab: tabs.values()) {
+	    closeDialog(tab);
+	}
     }
 
     /**
@@ -397,7 +467,8 @@ public class InAppBrowser extends CordovaPlugin {
      *                    which should be executed directly.
      */
     private void injectDeferredObject(String source, String jsWrapper) {
-        if (inAppWebView!=null) {
+	final Tab tab = this.tab;
+        if (tab.inAppWebView != null) {
             String scriptToInject;
             if (jsWrapper != null) {
                 org.json.JSONArray jsonEsc = new org.json.JSONArray();
@@ -413,7 +484,7 @@ public class InAppBrowser extends CordovaPlugin {
                 @SuppressLint("NewApi")
                 @Override
                 public void run() {
-                    inAppWebView.evaluateJavascript(finalScriptToInject, null);
+                    tab.inAppWebView.evaluateJavascript(finalScriptToInject, null);
                 }
             });
         } else {
@@ -521,35 +592,45 @@ public class InAppBrowser extends CordovaPlugin {
     /**
      * Closes the dialog
      */
-    public void closeDialog() {
+    public void closeDialog(String tabId) {
+	final Tab tab = this.tabs.get(tabId);
+	if (tab != null) {
+	    closeDialog(tab);
+	}
+    }
+
+    private void closeDialog(Tab tab) {
         this.cordova.getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 final WebView childView = inAppWebView;
                 // The JS protects against multiple calls, so this should happen only when
                 // closeDialog() is called by other native code.
-                if (childView == null) {
+                if (tab == null || tab.childView == null) {
                     return;
                 }
 
-                childView.setWebViewClient(new WebViewClient() {
+                tab.childView.setWebViewClient(new WebViewClient() {
                     // NB: wait for about:blank before dismissing
                     public void onPageFinished(WebView view, String url) {
-                        if (dialog != null && !cordova.getActivity().isFinishing()) {
-                            dialog.dismiss();
-                            dialog = null;
+                        if (tab.dialog != null && !cordova.getActivity().isFinishing()) {
+                            tab.dialog.dismiss();
+                            tab.dialog = null;
+			    if (this.tab == tab)
+				this.tab = null;
+			    tabs.remove(tab.id);
                         }
                     }
                 });
                 // NB: From SDK 19: "If you call methods on WebView from any thread
                 // other than your app's UI thread, it can cause unexpected results."
                 // http://developer.android.com/guide/webapps/migrating.html#Threads
-                childView.loadUrl("about:blank");
+                tab.childView.loadUrl("about:blank");
 
                 try {
                     JSONObject obj = new JSONObject();
                     obj.put("type", EXIT_EVENT);
-                    sendUpdate(obj, false);
+                    sendUpdate(tab, obj, false);
                 } catch (JSONException ex) {
                     LOG.d(LOG_TAG, "Should never happen");
                 }
@@ -560,17 +641,17 @@ public class InAppBrowser extends CordovaPlugin {
     /**
      * Hides the dialog
      */
-    public void hideDialog() {
+    public void hideDialog(final Tab tab) {
 	this.cordova.getActivity().runOnUiThread(new Runnable() {
 		@Override
 		public void run() {
-		    if (dialog != null && !cordova.getActivity().isFinishing()) {
-			dialog.hide();
+		    if (tab.dialog != null && !cordova.getActivity().isFinishing()) {
+			tab.dialog.hide();
 
 			try {
 			    JSONObject obj = new JSONObject();
 			    obj.put("type", HIDE_EVENT);
-			    sendUpdate(obj, true);
+			    sendUpdate(tab, obj, true);
 			} catch (JSONException ex) {
 			    LOG.d(LOG_TAG, "Should never happen");
 			}
@@ -582,9 +663,20 @@ public class InAppBrowser extends CordovaPlugin {
     /**
      * Checks to see if it is possible to go back one page in history, then does so.
      */
-    public void goBack() {
-        if (this.inAppWebView.canGoBack()) {
-            this.inAppWebView.goBack();
+    public void goBack(String tabId) {
+	final Tab tab = this.tabs.get(tabId);
+        if (tab != null && tab.inAppWebView.canGoBack()) {
+            tab.inAppWebView.goBack();
+        }
+    }
+
+    /**
+     * Checks to see if it is possible to go back one page in history, then does so.
+     */
+    public void goBack(Tab tab) {
+	final Tab tab = this.tabs.get(tabId);
+        if (tab != null && tab.inAppWebView.canGoBack()) {
+            tab.inAppWebView.goBack();
         }
     }
 
@@ -592,24 +684,37 @@ public class InAppBrowser extends CordovaPlugin {
      * Can the web browser go back?
      * @return boolean
      */
-    public boolean canGoBack() {
-        return this.inAppWebView.canGoBack();
+    public boolean canGoBack(String tabId) {
+	final Tab tab = this.tabs.get(tabId);
+	if (tab != null) {
+	    return tab.inAppWebView.canGoBack();
+	}
+	else {
+	    return false;
+	}
     }
 
     /**
      * Has the user set the hardware back button to go back
      * @return boolean
      */
-    public boolean hardwareBack() {
-        return hadwareBackButton;
+    public boolean hardwareBack(Stringg tabId) {
+	final Tab tab = this.tabs.get(tabId);
+	if (tab != null) {
+	    return tab.hardwareBackButton;
+	}
+	else {
+	    return false;
+	}
     }
 
     /**
      * Checks to see if it is possible to go forward one page in history, then does so.
      */
-    private void goForward() {
-        if (this.inAppWebView.canGoForward()) {
-            this.inAppWebView.goForward();
+    private void goForward(String tabId) {
+	final Tab tab = this.tabs.get(tabId);
+        if (tab != null && tab.inAppWebView.canGoForward()) {
+            tab.inAppWebView.goForward();
         }
     }
 
@@ -618,16 +723,16 @@ public class InAppBrowser extends CordovaPlugin {
      *
      * @param url to load
      */
-    private void navigate(String url) {
+    private void navigate(Tab tab, String url) {
         InputMethodManager imm = (InputMethodManager)this.cordova.getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(edittext.getWindowToken(), 0);
 
         if (!url.startsWith("http") && !url.startsWith("file:")) {
-            this.inAppWebView.loadUrl("http://" + url);
+            tab.inAppWebView.loadUrl("http://" + url);
         } else {
-            this.inAppWebView.loadUrl(url);
+            tab.inAppWebView.loadUrl(url);
         }
-        this.inAppWebView.requestFocus();
+        tab.inAppWebView.requestFocus();
     }
 
 
@@ -636,9 +741,9 @@ public class InAppBrowser extends CordovaPlugin {
      *
      * @return boolean
      */
-    private boolean getShowLocationBar() {
-        return this.showLocationBar;
-    }
+    //private boolean getShowLocationBar() {
+    //    return this.showLocationBar;
+    //}
 
     private InAppBrowser getInAppBrowser() {
         return this;
@@ -650,97 +755,95 @@ public class InAppBrowser extends CordovaPlugin {
      * @param url the url to load.
      * @param features jsonObject
      */
-    public String showWebPage(final String url, HashMap<String, String> features) {
+    public String showWebPage(final Tab tab, final String url, HashMap<String, String> features) {
         // Determine if we should hide the location bar.
-        showLocationBar = true;
-        showZoomControls = true;
-        openWindowHidden = false;
-        mediaPlaybackRequiresUserGesture = false;
+        tab.showLocationBar = true;
+        tab.showZoomControls = true;
+        tab.openWindowHidden = false;
+        tab.mediaPlaybackRequiresUserGesture = false;
 
         if (features != null) {
             String show = features.get(LOCATION);
             if (show != null) {
-                showLocationBar = show.equals("yes") ? true : false;
+                tab.showLocationBar = show.equals("yes") ? true : false;
             }
-            if(showLocationBar) {
+            if(tab.showLocationBar) {
                 String hideNavigation = features.get(HIDE_NAVIGATION);
                 String hideUrl = features.get(HIDE_URL);
-                if(hideNavigation != null) hideNavigationButtons = hideNavigation.equals("yes") ? true : false;
-                if(hideUrl != null) hideUrlBar = hideUrl.equals("yes") ? true : false;
+                if(hideNavigation != null) tab.hideNavigationButtons = hideNavigation.equals("yes") ? true : false;
+                if(hideUrl != null) tab.hideUrlBar = hideUrl.equals("yes") ? true : false;
             }
             String zoom = features.get(ZOOM);
             if (zoom != null) {
-                showZoomControls = zoom.equals("yes") ? true : false;
+                tab.showZoomControls = zoom.equals("yes") ? true : false;
             }
             String hidden = features.get(HIDDEN);
             if (hidden != null) {
-                openWindowHidden = hidden.equals("yes") ? true : false;
+                tab.openWindowHidden = hidden.equals("yes") ? true : false;
             }
             String hardwareBack = features.get(HARDWARE_BACK_BUTTON);
             if (hardwareBack != null) {
-                hadwareBackButton = hardwareBack.equals("yes") ? true : false;
+                tab.hardwareBackButton = hardwareBack.equals("yes") ? true : false;
             } else {
-                hadwareBackButton = DEFAULT_HARDWARE_BACK;
+                tab.hardwareBackButton = DEFAULT_HARDWARE_BACK;
             }
             String mediaPlayback = features.get(MEDIA_PLAYBACK_REQUIRES_USER_ACTION);
             if (mediaPlayback != null) {
-                mediaPlaybackRequiresUserGesture = mediaPlayback.equals("yes") ? true : false;
+                tab.mediaPlaybackRequiresUserGesture = mediaPlayback.equals("yes") ? true : false;
             }
             String cache = features.get(CLEAR_ALL_CACHE);
             if (cache != null) {
-                clearAllCache = cache.equals("yes") ? true : false;
+                tab.clearAllCache = cache.equals("yes") ? true : false;
             } else {
                 cache = features.get(CLEAR_SESSION_CACHE);
                 if (cache != null) {
-                    clearSessionCache = cache.equals("yes") ? true : false;
+                    tab.clearSessionCache = cache.equals("yes") ? true : false;
                 }
             }
             String shouldPause = features.get(SHOULD_PAUSE);
             if (shouldPause != null) {
-                shouldPauseInAppBrowser = shouldPause.equals("yes") ? true : false;
+                tab.shouldPauseInAppBrowser = shouldPause.equals("yes") ? true : false;
             }
             String wideViewPort = features.get(USER_WIDE_VIEW_PORT);
             if (wideViewPort != null ) {
-                useWideViewPort = wideViewPort.equals("yes") ? true : false;
+                tab.useWideViewPort = wideViewPort.equals("yes") ? true : false;
             }
             String closeButtonCaptionSet = features.get(CLOSE_BUTTON_CAPTION);
             if (closeButtonCaptionSet != null) {
-                closeButtonCaption = closeButtonCaptionSet;
+                tab.closeButtonCaption = closeButtonCaptionSet;
             }
             String closeButtonColorSet = features.get(CLOSE_BUTTON_COLOR);
             if (closeButtonColorSet != null) {
-                closeButtonColor = closeButtonColorSet;
+                tab.closeButtonColor = closeButtonColorSet;
             }
             String closeButtonHideSet = features.get(CLOSE_BUTTON_HIDE);
-            closeButtonHide = closeButtonHideSet != null && closeButtonHideSet.equals("yes");
+            tab.closeButtonHide = closeButtonHideSet != null && closeButtonHideSet.equals("yes");
             String leftToRightSet = features.get(LEFT_TO_RIGHT);
-            leftToRight = leftToRightSet != null && leftToRightSet.equals("yes");
+            tab.leftToRight = leftToRightSet != null && leftToRightSet.equals("yes");
             String toolbarColorSet = features.get(TOOLBAR_COLOR);
             if (toolbarColorSet != null) {
-                toolbarColor = android.graphics.Color.parseColor(toolbarColorSet);
+                tab.toolbarColor = android.graphics.Color.parseColor(toolbarColorSet);
             }
             String navigationButtonColorSet = features.get(NAVIGATION_COLOR);
             if (navigationButtonColorSet != null) {
-                navigationButtonColor = navigationButtonColorSet;
+                tab.navigationButtonColor = navigationButtonColorSet;
             }
             String showFooterSet = features.get(FOOTER);
             if (showFooterSet != null) {
-                showFooter = showFooterSet.equals("yes") ? true : false;
+                tab.showFooter = showFooterSet.equals("yes") ? true : false;
             }
             String footerColorSet = features.get(FOOTER_COLOR);
             if (footerColorSet != null) {
-                footerColor = footerColorSet;
+                tab.footerColor = footerColorSet;
             }
             if (features.get(BEFORELOAD) != null) {
-                beforeload = features.get(BEFORELOAD);
+                tab.beforeload = features.get(BEFORELOAD);
             }
             String fullscreenSet = features.get(FULLSCREEN);
             if (fullscreenSet != null) {
-                fullscreen = fullscreenSet.equals("yes") ? true : false;
+                tab.fullscreen = fullscreenSet.equals("yes") ? true : false;
             }
         }
-
-        final CordovaWebView thatWebView = this.webView;
 
         // Create dialog in new thread
         Runnable runnable = new Runnable() {
@@ -762,12 +865,12 @@ public class InAppBrowser extends CordovaPlugin {
                 View _close;
                 Resources activityRes = cordova.getActivity().getResources();
 
-                if (closeButtonCaption != "") {
+                if (tab.closeButtonCaption != "") {
                     // Use TextView for text
                     TextView close = new TextView(cordova.getActivity());
-                    close.setText(closeButtonCaption);
+                    close.setText(tab.closeButtonCaption);
                     close.setTextSize(20);
-                    if (closeButtonColor != "") close.setTextColor(android.graphics.Color.parseColor(closeButtonColor));
+                    if (tab.closeButtonColor != "") close.setTextColor(android.graphics.Color.parseColor(tab.closeButtonColor));
                     close.setGravity(android.view.Gravity.CENTER_VERTICAL);
                     close.setPadding(this.dpToPixels(10), 0, this.dpToPixels(10), 0);
                     _close = close;
@@ -776,7 +879,7 @@ public class InAppBrowser extends CordovaPlugin {
                     ImageButton close = new ImageButton(cordova.getActivity());
                     int closeResId = activityRes.getIdentifier("ic_action_remove", "drawable", cordova.getActivity().getPackageName());
                     Drawable closeIcon = activityRes.getDrawable(closeResId);
-                    if (closeButtonColor != "") close.setColorFilter(android.graphics.Color.parseColor(closeButtonColor));
+                    if (tab.closeButtonColor != "") close.setColorFilter(android.graphics.Color.parseColor(tab.closeButtonColor));
                     close.setImageDrawable(closeIcon);
                     close.setScaleType(ImageView.ScaleType.FIT_CENTER);
                     close.getAdjustViewBounds();
@@ -785,7 +888,7 @@ public class InAppBrowser extends CordovaPlugin {
                 }
 
                 RelativeLayout.LayoutParams closeLayoutParams = new RelativeLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT);
-                if (leftToRight) closeLayoutParams.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+                if (tab.leftToRight) closeLayoutParams.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
                 else closeLayoutParams.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
                 _close.setLayoutParams(closeLayoutParams);
                 _close.setBackground(null);
@@ -794,11 +897,11 @@ public class InAppBrowser extends CordovaPlugin {
                 _close.setId(Integer.valueOf(id));
                 _close.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-			if (closeButtonHide) {
-			    hideDialog();
+			if (tab.closeButtonHide) {
+			    hideDialog(tab);
 			}
 			else {
-			    closeDialog();
+			    closeDialog(tab);
 			}
                     }
                 });
@@ -810,19 +913,19 @@ public class InAppBrowser extends CordovaPlugin {
             public void run() {
 
                 // CB-6702 InAppBrowser hangs when opening more than one instance
-                if (dialog != null) {
-                    dialog.dismiss();
-                };
+		// if (tab.dialog != null) {
+		//     dialog.dismiss();
+                // };
 
                 // Let's create the main dialog
-                dialog = new InAppBrowserDialog(cordova.getActivity(), android.R.style.Theme_NoTitleBar);
-                dialog.getWindow().getAttributes().windowAnimations = android.R.style.Animation_Dialog;
-                dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-                if (fullscreen) {
-                    dialog.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                tab.dialog = new InAppBrowserDialog(cordova.getActivity(), android.R.style.Theme_NoTitleBar);
+                tab.dialog.getWindow().getAttributes().windowAnimations = android.R.style.Animation_Dialog;
+                tab.dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+                if (tab.fullscreen) {
+                    tab.dialog.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
                 }
-                dialog.setCancelable(true);
-                dialog.setInAppBroswer(getInAppBrowser());
+                tab.dialog.setCancelable(true);
+                tab.dialog.setInAppBrowser(getInAppBrowser(), tab.id);
 
                 // Main container layout
                 LinearLayout main = new LinearLayout(cordova.getActivity());
@@ -834,7 +937,7 @@ public class InAppBrowser extends CordovaPlugin {
                 toolbar.setBackgroundColor(toolbarColor);
                 toolbar.setLayoutParams(new RelativeLayout.LayoutParams(LayoutParams.MATCH_PARENT, this.dpToPixels(TOOLBAR_HEIGHT)));
                 toolbar.setPadding(this.dpToPixels(2), this.dpToPixels(2), this.dpToPixels(2), this.dpToPixels(2));
-                if (leftToRight) {
+                if (tab.leftToRight) {
                     toolbar.setHorizontalGravity(Gravity.LEFT);
                 } else {
                     toolbar.setHorizontalGravity(Gravity.RIGHT);
@@ -844,12 +947,12 @@ public class InAppBrowser extends CordovaPlugin {
                 // Action Button Container layout
                 RelativeLayout actionButtonContainer = new RelativeLayout(cordova.getActivity());
                 RelativeLayout.LayoutParams actionButtonLayoutParams = new RelativeLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
-                if (leftToRight) actionButtonLayoutParams.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+                if (tab.leftToRight) actionButtonLayoutParams.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
                 else actionButtonLayoutParams.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
                 actionButtonContainer.setLayoutParams(actionButtonLayoutParams);
                 actionButtonContainer.setHorizontalGravity(Gravity.LEFT);
                 actionButtonContainer.setVerticalGravity(Gravity.CENTER_VERTICAL);
-                actionButtonContainer.setId(leftToRight ? Integer.valueOf(5) : Integer.valueOf(1));
+                actionButtonContainer.setId(tab.leftToRight ? Integer.valueOf(5) : Integer.valueOf(1));
 
                 // Back button
                 ImageButton back = new ImageButton(cordova.getActivity());
@@ -861,7 +964,7 @@ public class InAppBrowser extends CordovaPlugin {
                 Resources activityRes = cordova.getActivity().getResources();
                 int backResId = activityRes.getIdentifier("ic_action_previous_item", "drawable", cordova.getActivity().getPackageName());
                 Drawable backIcon = activityRes.getDrawable(backResId);
-                if (navigationButtonColor != "") back.setColorFilter(android.graphics.Color.parseColor(navigationButtonColor));
+                if (tab.navigationButtonColor != "") back.setColorFilter(android.graphics.Color.parseColor(tab.navigationButtonColor));
                 back.setBackground(null);
                 back.setImageDrawable(backIcon);
                 back.setScaleType(ImageView.ScaleType.FIT_CENTER);
@@ -870,7 +973,7 @@ public class InAppBrowser extends CordovaPlugin {
 
                 back.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-                        goBack();
+                        goBack(tab.id);
                     }
                 });
 
@@ -883,7 +986,7 @@ public class InAppBrowser extends CordovaPlugin {
                 forward.setId(Integer.valueOf(3));
                 int fwdResId = activityRes.getIdentifier("ic_action_next_item", "drawable", cordova.getActivity().getPackageName());
                 Drawable fwdIcon = activityRes.getDrawable(fwdResId);
-                if (navigationButtonColor != "") forward.setColorFilter(android.graphics.Color.parseColor(navigationButtonColor));
+                if (tab.navigationButtonColor != "") forward.setColorFilter(android.graphics.Color.parseColor(tab.navigationButtonColor));
                 forward.setBackground(null);
                 forward.setImageDrawable(fwdIcon);
                 forward.setScaleType(ImageView.ScaleType.FIT_CENTER);
@@ -892,27 +995,27 @@ public class InAppBrowser extends CordovaPlugin {
 
                 forward.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-                        goForward();
+                        goForward(tab.id);
                     }
                 });
 
                 // Edit Text Box
-                edittext = new EditText(cordova.getActivity());
+                tab.edittext = new EditText(cordova.getActivity());
                 RelativeLayout.LayoutParams textLayoutParams = new RelativeLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
                 textLayoutParams.addRule(RelativeLayout.RIGHT_OF, 1);
                 textLayoutParams.addRule(RelativeLayout.LEFT_OF, 5);
-                edittext.setLayoutParams(textLayoutParams);
-                edittext.setId(Integer.valueOf(4));
-                edittext.setSingleLine(true);
-                edittext.setText(url);
-                edittext.setInputType(InputType.TYPE_TEXT_VARIATION_URI);
-                edittext.setImeOptions(EditorInfo.IME_ACTION_GO);
-                edittext.setInputType(InputType.TYPE_NULL); // Will not except input... Makes the text NON-EDITABLE
-                edittext.setOnKeyListener(new View.OnKeyListener() {
+                tab.edittext.setLayoutParams(textLayoutParams);
+                tab.edittext.setId(Integer.valueOf(4));
+                tab.edittext.setSingleLine(true);
+                tab.edittext.setText(url);
+                tab.edittext.setInputType(InputType.TYPE_TEXT_VARIATION_URI);
+                tab.edittext.setImeOptions(EditorInfo.IME_ACTION_GO);
+                tab.edittext.setInputType(InputType.TYPE_NULL); // Will not except input... Makes the text NON-EDITABLE
+                tab.edittext.setOnKeyListener(new View.OnKeyListener() {
                     public boolean onKey(View v, int keyCode, KeyEvent event) {
                         // If the event is a key-down event on the "enter" button
                         if ((event.getAction() == KeyEvent.ACTION_DOWN) && (keyCode == KeyEvent.KEYCODE_ENTER)) {
-                            navigate(edittext.getText().toString());
+                            navigate(tab, edittext.getText().toString());
                             return true;
                         }
                         return false;
@@ -921,15 +1024,15 @@ public class InAppBrowser extends CordovaPlugin {
 
 
                 // Header Close/Done button
-                int closeButtonId = leftToRight ? 1 : 5;
+                int closeButtonId = tab.leftToRight ? 1 : 5;
                 View close = createCloseButton(closeButtonId);
                 toolbar.addView(close);
 
                 // Footer
                 RelativeLayout footer = new RelativeLayout(cordova.getActivity());
                 int _footerColor;
-                if(footerColor != "") {
-                    _footerColor = Color.parseColor(footerColor);
+                if(tab.footerColor != "") {
+                    _footerColor = Color.parseColor(tab.footerColor);
                 } else {
                     _footerColor = android.graphics.Color.LTGRAY;
                 }
@@ -937,7 +1040,7 @@ public class InAppBrowser extends CordovaPlugin {
                 RelativeLayout.LayoutParams footerLayout = new RelativeLayout.LayoutParams(LayoutParams.MATCH_PARENT, this.dpToPixels(TOOLBAR_HEIGHT));
                 footerLayout.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE);
                 footer.setLayoutParams(footerLayout);
-                if (closeButtonCaption != "") footer.setPadding(this.dpToPixels(8), this.dpToPixels(8), this.dpToPixels(8), this.dpToPixels(8));
+                if (tab.closeButtonCaption != "") footer.setPadding(this.dpToPixels(8), this.dpToPixels(8), this.dpToPixels(8), this.dpToPixels(8));
                 footer.setHorizontalGravity(Gravity.LEFT);
                 footer.setVerticalGravity(Gravity.BOTTOM);
 
@@ -946,11 +1049,11 @@ public class InAppBrowser extends CordovaPlugin {
 
 
                 // WebView
-                inAppWebView = new WebView(cordova.getActivity());
-                inAppWebView.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
-                inAppWebView.setId(Integer.valueOf(6));
+                tab.inAppWebView = new WebView(cordova.getActivity());
+                tab.inAppWebView.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+                tab.inAppWebView.setId(Integer.valueOf(6));
                 // File Chooser Implemented ChromeClient
-                inAppWebView.setWebChromeClient(new InAppChromeClient(thatWebView) {
+                tab.inAppWebView.setWebChromeClient(new InAppChromeClient(tab.webView) {
                     public boolean onShowFileChooser (WebView webView, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams)
                     {
                         LOG.d(LOG_TAG, "File Chooser 5.0+");
@@ -970,12 +1073,12 @@ public class InAppBrowser extends CordovaPlugin {
                         return true;
                     }
                 });
-                currentClient = new InAppBrowserClient(thatWebView, edittext, beforeload);
-                inAppWebView.setWebViewClient(currentClient);
-                WebSettings settings = inAppWebView.getSettings();
+                tab.currentClient = new InAppBrowserClient(tab, tab.edittext, tab.beforeload);
+                tab.inAppWebView.setWebViewClient(tab.currentClient);
+                WebSettings settings = tab.inAppWebView.getSettings();
                 settings.setJavaScriptEnabled(true);
                 settings.setJavaScriptCanOpenWindowsAutomatically(true);
-                settings.setBuiltInZoomControls(showZoomControls);
+                settings.setBuiltInZoomControls(tab.showZoomControls);
                 settings.setPluginState(android.webkit.WebSettings.PluginState.ON);
 
                 // Add postMessage interface
@@ -986,15 +1089,15 @@ public class InAppBrowser extends CordovaPlugin {
                             JSONObject obj = new JSONObject();
                             obj.put("type", MESSAGE_EVENT);
                             obj.put("data", new JSONObject(data));
-                            sendUpdate(obj, true);
+                            sendUpdate(tab, obj, true);
                         } catch (JSONException ex) {
                             LOG.e(LOG_TAG, "data object passed to postMessage has caused a JSON error.");
                         }
                     }
                 }
 
-                settings.setMediaPlaybackRequiresUserGesture(mediaPlaybackRequiresUserGesture);
-                inAppWebView.addJavascriptInterface(new JsObject(), "cordova_iab");
+                settings.setMediaPlaybackRequiresUserGesture(tab.mediaPlaybackRequiresUserGesture);
+                tab.inAppWebView.addJavascriptInterface(new JsObject(), "cordova_iab");
 
                 String overrideUserAgent = preferences.getString("OverrideUserAgent", null);
                 String appendUserAgent = preferences.getString("AppendUserAgent", null);
@@ -1016,46 +1119,46 @@ public class InAppBrowser extends CordovaPlugin {
                 }
                 settings.setDomStorageEnabled(true);
 
-                if (clearAllCache) {
+                if (tab.clearAllCache) {
                     CookieManager.getInstance().removeAllCookie();
                 } else if (clearSessionCache) {
                     CookieManager.getInstance().removeSessionCookie();
                 }
 
                 // Enable Thirdparty Cookies
-                CookieManager.getInstance().setAcceptThirdPartyCookies(inAppWebView,true);
+                CookieManager.getInstance().setAcceptThirdPartyCookies(tab.inAppWebView, true);
 
-                inAppWebView.loadUrl(url);
-                inAppWebView.setId(Integer.valueOf(6));
-                inAppWebView.getSettings().setLoadWithOverviewMode(true);
-                inAppWebView.getSettings().setUseWideViewPort(useWideViewPort);
+                tab.inAppWebView.loadUrl(url);
+                tab.inAppWebView.setId(Integer.valueOf(6));
+                tab.inAppWebView.getSettings().setLoadWithOverviewMode(true);
+                tab.inAppWebView.getSettings().setUseWideViewPort(useWideViewPort);
                 // Multiple Windows set to true to mitigate Chromium security bug.
                 //  See: https://bugs.chromium.org/p/chromium/issues/detail?id=1083819
-                inAppWebView.getSettings().setSupportMultipleWindows(true);
-                inAppWebView.requestFocus();
-                inAppWebView.requestFocusFromTouch();
+                tab.inAppWebView.getSettings().setSupportMultipleWindows(true);
+                tab.inAppWebView.requestFocus();
+                tab.inAppWebView.requestFocusFromTouch();
 
                 // Add the back and forward buttons to our action button container layout
                 actionButtonContainer.addView(back);
                 actionButtonContainer.addView(forward);
 
                 // Add the views to our toolbar if they haven't been disabled
-                if (!hideNavigationButtons) toolbar.addView(actionButtonContainer);
-                if (!hideUrlBar) toolbar.addView(edittext);
+                if (!tab.hideNavigationButtons) toolbar.addView(actionButtonContainer);
+                if (!tab.hideUrlBar) toolbar.addView(edittext);
 
                 // Don't add the toolbar if its been disabled
-                if (getShowLocationBar()) {
+                if (tab.showLocationBar) { //getShowLocationBar()) {
                     // Add our toolbar to our main view/layout
                     main.addView(toolbar);
                 }
 
                 // Add our webview to our main view/layout
                 RelativeLayout webViewLayout = new RelativeLayout(cordova.getActivity());
-                webViewLayout.addView(inAppWebView);
+                webViewLayout.addView(tab.inAppWebView);
                 main.addView(webViewLayout);
 
                 // Don't add the footer unless it's been enabled
-                if (showFooter) {
+                if (tab.showFooter) {
                     webViewLayout.addView(footer);
                 }
 
@@ -1064,15 +1167,15 @@ public class InAppBrowser extends CordovaPlugin {
                 lp.width = WindowManager.LayoutParams.MATCH_PARENT;
                 lp.height = WindowManager.LayoutParams.MATCH_PARENT;
 
-                if (dialog != null) {
-                    dialog.setContentView(main);
-                    dialog.show();
-                    dialog.getWindow().setAttributes(lp);
+                if (tab.dialog != null) {
+                    tab.dialog.setContentView(main);
+                    tab.dialog.show();
+                    tab.dialog.getWindow().setAttributes(lp);
                 }
                 // the goal of openhidden is to load the url and not display it
                 // Show() needs to be called to cause the URL to be loaded
-                if (openWindowHidden && dialog != null) {
-                    dialog.hide();
+                if (tab.openWindowHidden && tab.dialog != null) {
+                    tab.dialog.hide();
                 }
             }
         };
@@ -1085,8 +1188,8 @@ public class InAppBrowser extends CordovaPlugin {
      *
      * @param obj a JSONObject contain event payload information
      */
-    private void sendUpdate(JSONObject obj, boolean keepCallback) {
-        sendUpdate(obj, keepCallback, PluginResult.Status.OK);
+    private void sendUpdate(Tab tab, JSONObject obj, boolean keepCallback) {
+        sendUpdate(tab, obj, keepCallback, PluginResult.Status.OK);
     }
 
     /**
@@ -1095,13 +1198,13 @@ public class InAppBrowser extends CordovaPlugin {
      * @param obj a JSONObject contain event payload information
      * @param status the status code to return to the JavaScript environment
      */
-    private void sendUpdate(JSONObject obj, boolean keepCallback, PluginResult.Status status) {
-        if (callbackContext != null) {
+    private void sendUpdate(Tab tab, JSONObject obj, boolean keepCallback, PluginResult.Status status) {
+        if (tab.callbackContext != null) {
             PluginResult result = new PluginResult(status, obj);
             result.setKeepCallback(keepCallback);
-            callbackContext.sendPluginResult(result);
+            tab.callbackContext.sendPluginResult(result);
             if (!keepCallback) {
-                callbackContext = null;
+                tab.callbackContext = null;
             }
         }
     }
@@ -1128,6 +1231,7 @@ public class InAppBrowser extends CordovaPlugin {
      * The webview client receives notifications about appView
      */
     public class InAppBrowserClient extends WebViewClient {
+	Tab tab;
         EditText edittext;
         CordovaWebView webView;
         String beforeload;
@@ -1139,8 +1243,9 @@ public class InAppBrowser extends CordovaPlugin {
          * @param webView
          * @param mEditText
          */
-        public InAppBrowserClient(CordovaWebView webView, EditText mEditText, String beforeload) {
-            this.webView = webView;
+        public InAppBrowserClient(Tab tab, EditText mEditText, String beforeload) {
+	    this.tab = tab;
+            this.webView = tab.webView;
             this.edittext = mEditText;
             this.beforeload = beforeload;
             this.waitForBeforeload = beforeload != null;
@@ -1218,7 +1323,7 @@ public class InAppBrowser extends CordovaPlugin {
                     obj.put("url", url);
                     obj.put("code", -1);
                     obj.put("message", errorMessage);
-                    sendUpdate(obj, true, PluginResult.Status.ERROR);
+                    sendUpdate(tab, obj, true, PluginResult.Status.ERROR);
                 } catch(Exception e) {
                     LOG.e(LOG_TAG, "Error sending loaderror for " + url + ": " + e.toString());
                 }
@@ -1289,7 +1394,7 @@ public class InAppBrowser extends CordovaPlugin {
                                 JSONObject obj = new JSONObject();
                                 obj.put("type", "customscheme");
                                 obj.put("url", url);
-                                sendUpdate(obj, true);
+                                sendUpdate(tab, obj, true);
                                 override = true;
                             } catch (JSONException ex) {
                                 LOG.e(LOG_TAG, "Custom Scheme URI passed in has caused a JSON error.");
@@ -1313,7 +1418,7 @@ public class InAppBrowser extends CordovaPlugin {
                 if(method != null) {
                     obj.put("method", method);
                 }
-                sendUpdate(obj, true);
+                sendUpdate(tab, obj, true);
                 return true;
             } catch (JSONException ex) {
                 LOG.e(LOG_TAG, "URI passed in has caused a JSON error.");
@@ -1368,7 +1473,7 @@ public class InAppBrowser extends CordovaPlugin {
                 JSONObject obj = new JSONObject();
                 obj.put("type", LOAD_START_EVENT);
                 obj.put("url", newloc);
-                sendUpdate(obj, true);
+                sendUpdate(tab, obj, true);
             } catch (JSONException ex) {
                 LOG.e(LOG_TAG, "URI passed in has caused a JSON error.");
             }
@@ -1392,7 +1497,7 @@ public class InAppBrowser extends CordovaPlugin {
                 obj.put("type", LOAD_STOP_EVENT);
                 obj.put("url", url);
 
-                sendUpdate(obj, true);
+                sendUpdate(tab, obj, true);
             } catch (JSONException ex) {
                 LOG.d(LOG_TAG, "Should never happen");
             }
@@ -1408,7 +1513,7 @@ public class InAppBrowser extends CordovaPlugin {
                 obj.put("code", errorCode);
                 obj.put("message", description);
 
-                sendUpdate(obj, true, PluginResult.Status.ERROR);
+                sendUpdate(tab, obj, true, PluginResult.Status.ERROR);
             } catch (JSONException ex) {
                 LOG.d(LOG_TAG, "Should never happen");
             }
@@ -1447,7 +1552,7 @@ public class InAppBrowser extends CordovaPlugin {
                 }
                 obj.put("message", message);
 
-                sendUpdate(obj, true, PluginResult.Status.ERROR);
+                sendUpdate(tab, obj, true, PluginResult.Status.ERROR);
             } catch (JSONException ex) {
                 LOG.d(LOG_TAG, "Should never happen");
             }

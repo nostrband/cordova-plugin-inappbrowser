@@ -32,9 +32,11 @@
             loadstop: channel.create('loadstop'),
             loaderror: channel.create('loaderror'),
             exit: channel.create('exit'),
+            hide: channel.create('hide'),
             customscheme: channel.create('customscheme'),
             message: channel.create('message')
         };
+        this.tabId = null;
     }
 
     InAppBrowser.prototype = {
@@ -47,18 +49,19 @@
                 }
             }
         },
+        _tabIdArgs: function () { return this.tabId ? [this.tabId] : []; }
         _loadAfterBeforeload: function (strUrl) {
             strUrl = urlutil.makeAbsolute(strUrl);
-            exec(null, null, 'InAppBrowser', 'loadAfterBeforeload', [strUrl]);
+            exec(null, null, 'InAppBrowser', 'loadAfterBeforeload', [strUrl, ...this._tabIdArgs()]);
         },
         close: function (eventname) {
-            exec(null, null, 'InAppBrowser', 'close', []);
+            exec(null, null, 'InAppBrowser', 'close', [...this._tabIdArgs()]);
         },
         show: function (eventname) {
-            exec(null, null, 'InAppBrowser', 'show', []);
+            exec(null, null, 'InAppBrowser', 'show', [...this._tabIdArgs()]);
         },
         hide: function (eventname) {
-            exec(null, null, 'InAppBrowser', 'hide', []);
+            exec(null, null, 'InAppBrowser', 'hide', [...this._tabIdArgs()]);
         },
         addEventListener: function (eventname, f) {
             if (eventname in this.channels) {
@@ -73,9 +76,9 @@
 
         executeScript: function (injectDetails, cb) {
             if (injectDetails.code) {
-                exec(cb, null, 'InAppBrowser', 'injectScriptCode', [injectDetails.code, !!cb]);
+                exec(cb, null, 'InAppBrowser', 'injectScriptCode', [injectDetails.code, !!cb, ...this._tabIdArgs()]);
             } else if (injectDetails.file) {
-                exec(cb, null, 'InAppBrowser', 'injectScriptFile', [injectDetails.file, !!cb]);
+                exec(cb, null, 'InAppBrowser', 'injectScriptFile', [injectDetails.file, !!cb, ...this._tabIdArgs()]);
             } else {
                 throw new Error('executeScript requires exactly one of code or file to be specified');
             }
@@ -83,9 +86,9 @@
 
         insertCSS: function (injectDetails, cb) {
             if (injectDetails.code) {
-                exec(cb, null, 'InAppBrowser', 'injectStyleCode', [injectDetails.code, !!cb]);
+                exec(cb, null, 'InAppBrowser', 'injectStyleCode', [injectDetails.code, !!cb, ...this._tabIdArgs()]);
             } else if (injectDetails.file) {
-                exec(cb, null, 'InAppBrowser', 'injectStyleFile', [injectDetails.file, !!cb]);
+                exec(cb, null, 'InAppBrowser', 'injectStyleFile', [injectDetails.file, !!cb, ...this._tabIdArgs()]);
             } else {
                 throw new Error('insertCSS requires exactly one of code or file to be specified');
             }
@@ -112,8 +115,12 @@
         };
 
         strWindowFeatures = strWindowFeatures || '';
+        if (strWindowFeatures.includes("multitab=yes")) {
+            iab.tabId = ""+Math.random();
+            console.log("url", strUrl, "tab", iab.tabId);
+        }
 
-        exec(cb, cb, 'InAppBrowser', 'open', [strUrl, strWindowName, strWindowFeatures]);
+        exec(cb, cb, 'InAppBrowser', 'open', [strUrl, strWindowName, strWindowFeatures, ...iab._tabIdArgs()]);
         return iab;
     };
 })();
