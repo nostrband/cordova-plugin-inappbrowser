@@ -108,6 +108,7 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String TOOLBAR_COLOR = "toolbarcolor";
     private static final String CLOSE_BUTTON_CAPTION = "closebuttoncaption";
     private static final String CLOSE_BUTTON_COLOR = "closebuttoncolor";
+    private static final String CLOSE_BUTTON_HIDE = "closebuttonhide";
     private static final String LEFT_TO_RIGHT = "lefttoright";
     private static final String HIDE_NAVIGATION = "hidenavigationbuttons";
     private static final String NAVIGATION_COLOR = "navigationbuttoncolor";
@@ -138,6 +139,7 @@ public class InAppBrowser extends CordovaPlugin {
     private final static int FILECHOOSER_REQUESTCODE = 1;
     private String closeButtonCaption = "";
     private String closeButtonColor = "";
+    private boolean closeButtonHide = false;
     private boolean leftToRight = false;
     private int toolbarColor = android.graphics.Color.LTGRAY;
     private boolean hideNavigationButtons = false;
@@ -686,9 +688,10 @@ public class InAppBrowser extends CordovaPlugin {
             if (closeButtonColorSet != null) {
                 closeButtonColor = closeButtonColorSet;
             }
+            String closeButtonHideSet = features.get(CLOSE_BUTTON_HIDE);
+            closeButtonHide = closeButtonHideSet != null && closeButtonHideSet.equals("yes");
             String leftToRightSet = features.get(LEFT_TO_RIGHT);
             leftToRight = leftToRightSet != null && leftToRightSet.equals("yes");
-
             String toolbarColorSet = features.get(TOOLBAR_COLOR);
             if (toolbarColorSet != null) {
                 toolbarColor = android.graphics.Color.parseColor(toolbarColorSet);
@@ -768,7 +771,19 @@ public class InAppBrowser extends CordovaPlugin {
                 _close.setId(Integer.valueOf(id));
                 _close.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-                        closeDialog();
+			if (closeButtonHide) {
+			    this.cordova.getActivity().runOnUiThread(new Runnable() {
+				    @Override
+				    public void run() {
+					if (dialog != null && !cordova.getActivity().isFinishing()) {
+					    dialog.hide();
+					}
+				    }
+				});
+			}
+			else {
+			    closeDialog();
+			}
                     }
                 });
 
