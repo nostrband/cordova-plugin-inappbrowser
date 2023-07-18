@@ -91,6 +91,7 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String SELF = "_self";
     private static final String SYSTEM = "_system";
     private static final String EXIT_EVENT = "exit";
+    private static final String HIDE_EVENT = "hide";
     private static final String LOCATION = "location";
     private static final String ZOOM = "zoom";
     private static final String HIDDEN = "hidden";
@@ -565,6 +566,14 @@ public class InAppBrowser extends CordovaPlugin {
 		public void run() {
 		    if (dialog != null && !cordova.getActivity().isFinishing()) {
 			dialog.hide();
+
+			try {
+			    JSONObject obj = new JSONObject();
+			    obj.put("type", HIDE_EVENT);
+			    sendUpdate(obj, true);
+			} catch (JSONException ex) {
+			    LOG.d(LOG_TAG, "Should never happen");
+			}
 		    }
 		}
 	    });
