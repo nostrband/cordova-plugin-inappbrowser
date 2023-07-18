@@ -557,6 +557,20 @@ public class InAppBrowser extends CordovaPlugin {
     }
 
     /**
+     * Hides the dialog
+     */
+    public void hideDialog() {
+	this.cordova.getActivity().runOnUiThread(new Runnable() {
+		@Override
+		public void run() {
+		    if (dialog != null && !cordova.getActivity().isFinishing()) {
+			dialog.hide();
+		    }
+		}
+	    });
+    }
+
+    /**
      * Checks to see if it is possible to go back one page in history, then does so.
      */
     public void goBack() {
@@ -772,14 +786,7 @@ public class InAppBrowser extends CordovaPlugin {
                 _close.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
 			if (closeButtonHide) {
-			    this.cordova.getActivity().runOnUiThread(new Runnable() {
-				    @Override
-				    public void run() {
-					if (dialog != null && !cordova.getActivity().isFinishing()) {
-					    dialog.hide();
-					}
-				    }
-				});
+			    hideDialog();
 			}
 			else {
 			    closeDialog();
