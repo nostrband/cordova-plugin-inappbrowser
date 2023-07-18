@@ -596,10 +596,15 @@ public class InAppBrowser extends CordovaPlugin {
     /**
      * Closes the dialog
      */
-    public void closeDialog(String tabId) {
+    public void doneDialog(String tabId) {
 	final Tab tab = this.tabs.get(tabId);
 	if (tab != null) {
-	    closeDialog(tab);
+	    if (tab.closeButtonHide) {
+		hideDialog(tab);
+	    }
+	    else {
+		closeDialog(tab);
+	    }
 	}
     }
 
@@ -889,7 +894,7 @@ public class InAppBrowser extends CordovaPlugin {
                     if (tab.closeButtonColor != "") close.setColorFilter(android.graphics.Color.parseColor(tab.closeButtonColor));
                     close.setImageDrawable(closeIcon);
                     close.setScaleType(ImageView.ScaleType.FIT_CENTER);
-		    close.setPadding(0, this.dpToPixels(10), 0, this.dpToPixels(10));
+		    close.setPadding(this.dpToPixels(5), this.dpToPixels(10), this.dpToPixels(5), this.dpToPixels(10));
                     // close.setPadding(this.dpToPixels(0), 0, this.dpToPixels(0), 0);
                     close.getAdjustViewBounds();
 
