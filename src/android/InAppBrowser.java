@@ -92,6 +92,7 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String SYSTEM = "_system";
     private static final String EXIT_EVENT = "exit";
     private static final String HIDE_EVENT = "hide";
+    private static final String MENU_EVENT = "menu";
     private static final String LOCATION = "location";
     private static final String ZOOM = "zoom";
     private static final String HIDDEN = "hidden";
@@ -110,6 +111,7 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String CLOSE_BUTTON_CAPTION = "closebuttoncaption";
     private static final String CLOSE_BUTTON_COLOR = "closebuttoncolor";
     private static final String CLOSE_BUTTON_HIDE = "closebuttonhide";
+    private static final String MENU_BUTTON = "menubutton";
     private static final String LEFT_TO_RIGHT = "lefttoright";
     private static final String HIDE_NAVIGATION = "hidenavigationbuttons";
     private static final String NAVIGATION_COLOR = "navigationbuttoncolor";
@@ -144,6 +146,7 @@ public class InAppBrowser extends CordovaPlugin {
 	String closeButtonCaption = "";
 	String closeButtonColor = "";
 	boolean closeButtonHide = false;
+	boolean menuButton = false;
 	boolean leftToRight = false;
 	int toolbarColor = android.graphics.Color.LTGRAY;
 	boolean hideNavigationButtons = false;
@@ -157,7 +160,7 @@ public class InAppBrowser extends CordovaPlugin {
 	InAppBrowserClient currentClient;
     }
 
-    private HashMap<String, Tab> tabs;
+    private HashMap<String, Tab> tabs = new HashMap<String, Tab>();
     private Tab tab; // current tab
 
     private boolean switchTab(final String tabId) {
@@ -367,7 +370,7 @@ public class InAppBrowser extends CordovaPlugin {
             injectDeferredObject(args.getString(0), jsWrapper);
         }
         else if (action.equals("show")) {
-	    if (!switchTab(args.optString(2))) {
+	    if (!switchTab(args.optString(0))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
 		return false;
             }
@@ -385,7 +388,7 @@ public class InAppBrowser extends CordovaPlugin {
 	    tab.callbackContext.sendPluginResult(pluginResult);
         }
         else if (action.equals("hide")) {
-	    if (!switchTab(args.optString(2))) {
+	    if (!switchTab(args.optString(0))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
 		return false;
             }
@@ -817,6 +820,8 @@ public class InAppBrowser extends CordovaPlugin {
             }
             String closeButtonHideSet = features.get(CLOSE_BUTTON_HIDE);
             tab.closeButtonHide = closeButtonHideSet != null && closeButtonHideSet.equals("yes");
+            String menuButtonSet = features.get(MENU_BUTTON);
+            tab.menuButton = menuButtonSet != null && menuButtonSet.equals("yes");
             String leftToRightSet = features.get(LEFT_TO_RIGHT);
             tab.leftToRight = leftToRightSet != null && leftToRightSet.equals("yes");
             String toolbarColorSet = features.get(TOOLBAR_COLOR);
@@ -878,11 +883,14 @@ public class InAppBrowser extends CordovaPlugin {
                 }
                 else {
                     ImageButton close = new ImageButton(cordova.getActivity());
-                    int closeResId = activityRes.getIdentifier("ic_action_remove", "drawable", cordova.getActivity().getPackageName());
+		    String icon = tab.menuButton ? "ic_action_keyboard_arrow_down" : "ic_action_remove";
+                    int closeResId = activityRes.getIdentifier(icon, "drawable", cordova.getActivity().getPackageName());
                     Drawable closeIcon = activityRes.getDrawable(closeResId);
                     if (tab.closeButtonColor != "") close.setColorFilter(android.graphics.Color.parseColor(tab.closeButtonColor));
                     close.setImageDrawable(closeIcon);
                     close.setScaleType(ImageView.ScaleType.FIT_CENTER);
+		    close.setPadding(0, this.dpToPixels(10), 0, this.dpToPixels(10));
+                    // close.setPadding(this.dpToPixels(0), 0, this.dpToPixels(0), 0);
                     close.getAdjustViewBounds();
 
                     _close = close;
@@ -1000,11 +1008,14 @@ public class InAppBrowser extends CordovaPlugin {
                     }
                 });
 
+                int closeButtonId = tab.leftToRight ? 1 : 5;
+		int menuButtonId = tab.menuButton ? 6 : 5;
+		
                 // Edit Text Box
                 tab.edittext = new EditText(cordova.getActivity());
                 RelativeLayout.LayoutParams textLayoutParams = new RelativeLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
                 textLayoutParams.addRule(RelativeLayout.RIGHT_OF, 1);
-                textLayoutParams.addRule(RelativeLayout.LEFT_OF, 5);
+                textLayoutParams.addRule(RelativeLayout.LEFT_OF, menuButtonId);
                 tab.edittext.setLayoutParams(textLayoutParams);
                 tab.edittext.setId(Integer.valueOf(4));
                 tab.edittext.setSingleLine(true);
@@ -1023,12 +1034,43 @@ public class InAppBrowser extends CordovaPlugin {
                     }
                 });
 
-
                 // Header Close/Done button
-                int closeButtonId = tab.leftToRight ? 1 : 5;
                 View close = createCloseButton(closeButtonId);
                 toolbar.addView(close);
 
+		// Menu button
+		if (tab.menuButton) {
+		    // Menu button
+		    ImageButton menu = new ImageButton(cordova.getActivity());
+		    RelativeLayout.LayoutParams menuLayoutParams = new RelativeLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT);
+		    menuLayoutParams.addRule(RelativeLayout.LEFT_OF, closeButtonId);
+		    menu.setLayoutParams(menuLayoutParams);
+		    menu.setContentDescription("Menu Button");
+		    menu.setId(Integer.valueOf(menuButtonId));
+		    int menuResId = activityRes.getIdentifier("ic_action_menu", "drawable", cordova.getActivity().getPackageName());
+		    Drawable menuIcon = activityRes.getDrawable(menuResId);
+		    if (tab.navigationButtonColor != "") menu.setColorFilter(android.graphics.Color.parseColor(tab.navigationButtonColor));
+		    menu.setBackground(null);
+		    menu.setImageDrawable(menuIcon);
+		    menu.setScaleType(ImageView.ScaleType.FIT_CENTER);
+		    menu.setPadding(0, this.dpToPixels(10), 0, this.dpToPixels(10));
+		    menu.getAdjustViewBounds();
+
+		    menu.setOnClickListener(new View.OnClickListener() {
+			    public void onClick(View v) {
+				try {
+				    JSONObject obj = new JSONObject();
+				    obj.put("type", MENU_EVENT);
+				    sendUpdate(tab, obj, true);
+				} catch (JSONException ex) {
+				    LOG.d(LOG_TAG, "Should never happen");
+				}
+			    }
+			});
+
+		    toolbar.addView(menu);
+		}
+		
                 // Footer
                 RelativeLayout footer = new RelativeLayout(cordova.getActivity());
                 int _footerColor;
