@@ -52,7 +52,7 @@ public class InAppBrowserDialog extends Dialog {
             if (this.inAppBrowser.hardwareBack(tabId) && this.inAppBrowser.canGoBack(tabId)) {
                 this.inAppBrowser.goBack(tabId);
             }  else {
-                this.inAppBrowser.closeDialog(tabId);
+                this.inAppBrowser.doneDialog(tabId);
             }
         }
     }
