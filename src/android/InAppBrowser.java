@@ -323,8 +323,8 @@ public class InAppBrowser extends CordovaPlugin {
 
             String jsWrapper = null;
             if (args.getBoolean(1)) {
-		jsWrapper = String.format("(function(){prompt(JSON.stringify([eval(%%s)]), 'gap-iab://%s')})()", callbackContext.getCallbackId());
-                // jsWrapper = String.format("(function(){prompt(JSON.stringify([(function (){ %%s; })()]), 'gap-iab://%s')})()", callbackContext.getCallbackId());
+		// jsWrapper = String.format("(function(){prompt(JSON.stringify([eval(%%s)]), 'gap-iab://%s')})()", callbackContext.getCallbackId());
+                jsWrapper = String.format("(function(){prompt(JSON.stringify([(function (){ %%s; })()]), 'gap-iab://%s')})()", callbackContext.getCallbackId());
             }
             injectDeferredObject(args.getString(0), jsWrapper);
         }
@@ -476,11 +476,11 @@ public class InAppBrowser extends CordovaPlugin {
         if (tab.inAppWebView != null) {
             String scriptToInject;
             if (jsWrapper != null) {
-                org.json.JSONArray jsonEsc = new org.json.JSONArray();
-                jsonEsc.put(source);
-                String jsonRepr = jsonEsc.toString();
-                String jsonSourceString = jsonRepr.substring(1, jsonRepr.length()-1);
-                scriptToInject = String.format(jsWrapper, jsonSourceString);
+                //org.json.JSONArray jsonEsc = new org.json.JSONArray();
+                //jsonEsc.put(source);
+                //String jsonRepr = jsonEsc.toString();
+                //String jsonSourceString = jsonRepr.substring(1, jsonRepr.length()-1);
+                scriptToInject = String.format(jsWrapper, source); // jsonSourceString);
             } else {
                 scriptToInject = source;
             }
@@ -624,6 +624,7 @@ public class InAppBrowser extends CordovaPlugin {
                 childView.setWebViewClient(new WebViewClient() {
                     // NB: wait for about:blank before dismissing
                     public void onPageFinished(WebView view, String url) {
+			// LOG.d(LOG_TAG, "done page onPageFinished " + url);
                         if (tab.dialog != null && !cordova.getActivity().isFinishing()) {
                             tab.dialog.dismiss();
                             tab.dialog = null;
@@ -1530,6 +1531,7 @@ public class InAppBrowser extends CordovaPlugin {
 
         public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
+	    // LOG.d(LOG_TAG, "child page onPageFinished" + url);
 
             // Set the namespace for postMessage()
             injectDeferredObject("window.webkit={messageHandlers:{cordova_iab:cordova_iab}}", null);
