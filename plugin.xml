@@ -66,6 +66,16 @@
         <resource-file src="src/android/res/drawable-xhdpi/ic_action_remove.png" target="res/drawable-xhdpi/ic_action_remove.png" />
         <resource-file src="src/android/res/drawable-xxhdpi/ic_action_remove.png" target="res/drawable-xxhdpi/ic_action_remove.png" />
 
+        <resource-file src="src/android/res/drawable-hdpi/ic_action_keyboard_arrow_down.png" target="res/drawable-hdpi/ic_action_keyboard_arrow_down.png" />
+        <resource-file src="src/android/res/drawable-mdpi/ic_action_keyboard_arrow_down.png" target="res/drawable-mdpi/ic_action_keyboard_arrow_down.png" />
+        <resource-file src="src/android/res/drawable-xhdpi/ic_action_keyboard_arrow_down.png" target="res/drawable-xhdpi/ic_action_keyboard_arrow_down.png" />
+        <resource-file src="src/android/res/drawable-xxhdpi/ic_action_keyboard_arrow_down.png" target="res/drawable-xxhdpi/ic_action_keyboard_arrow_down.png" />
+
+        <resource-file src="src/android/res/drawable-hdpi/ic_action_menu.png" target="res/drawable-hdpi/ic_action_menu.png" />
+        <resource-file src="src/android/res/drawable-mdpi/ic_action_menu.png" target="res/drawable-mdpi/ic_action_menu.png" />
+        <resource-file src="src/android/res/drawable-xhdpi/ic_action_menu.png" target="res/drawable-xhdpi/ic_action_menu.png" />
+        <resource-file src="src/android/res/drawable-xxhdpi/ic_action_menu.png" target="res/drawable-xxhdpi/ic_action_menu.png" />
+
     </platform>
 
     <!-- ios -->

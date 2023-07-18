@@ -883,7 +883,7 @@ public class InAppBrowser extends CordovaPlugin {
                 }
                 else {
                     ImageButton close = new ImageButton(cordova.getActivity());
-		    String icon = tab.menuButton ? "ic_action_keyboard_arrow_down" : "ic_action_remove";
+		    String icon = tab.closeButtonHide ? "ic_action_keyboard_arrow_down" : "ic_action_remove";
                     int closeResId = activityRes.getIdentifier(icon, "drawable", cordova.getActivity().getPackageName());
                     Drawable closeIcon = activityRes.getDrawable(closeResId);
                     if (tab.closeButtonColor != "") close.setColorFilter(android.graphics.Color.parseColor(tab.closeButtonColor));
