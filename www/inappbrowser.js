@@ -49,7 +49,7 @@
                 }
             }
         },
-        _tabIdArgs: function () { return this.tabId ? [this.tabId] : []; }
+        _tabIdArgs: function () { return this.tabId ? [this.tabId] : []; },
         _loadAfterBeforeload: function (strUrl) {
             strUrl = urlutil.makeAbsolute(strUrl);
             exec(null, null, 'InAppBrowser', 'loadAfterBeforeload', [strUrl, ...this._tabIdArgs()]);

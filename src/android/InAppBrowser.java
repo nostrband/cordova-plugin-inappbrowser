@@ -123,6 +123,8 @@ public class InAppBrowser extends CordovaPlugin {
 
     private static final List customizableOptions = Arrays.asList(CLOSE_BUTTON_CAPTION, TOOLBAR_COLOR, NAVIGATION_COLOR, CLOSE_BUTTON_COLOR, FOOTER_COLOR);
 
+    final static int FILECHOOSER_REQUESTCODE = 1;
+
     private class Tab {
 	String id = "";
 	InAppBrowserDialog dialog;
@@ -139,7 +141,6 @@ public class InAppBrowser extends CordovaPlugin {
 	boolean shouldPauseInAppBrowser = false;
 	boolean useWideViewPort = true;
 	ValueCallback<Uri[]> mUploadCallback;
-	final static int FILECHOOSER_REQUESTCODE = 1;
 	String closeButtonCaption = "";
 	String closeButtonColor = "";
 	boolean closeButtonHide = false;
@@ -292,7 +293,7 @@ public class InAppBrowser extends CordovaPlugin {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
 		return false;
             }
-	    final Tab tab = t;
+	    final Tab tab = this.tab;
             if (tab.beforeload == null) {
                 LOG.e(LOG_TAG, "unexpected loadAfterBeforeload called without feature beforeload=yes");
             }
@@ -370,7 +371,7 @@ public class InAppBrowser extends CordovaPlugin {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
 		return false;
             }
-	    final Tab tab = t;
+	    final Tab tab = this.tab;
 	    this.cordova.getActivity().runOnUiThread(new Runnable() {
 		    @Override
 		    public void run() {
@@ -384,7 +385,7 @@ public class InAppBrowser extends CordovaPlugin {
 	    tab.callbackContext.sendPluginResult(pluginResult);
         }
         else if (action.equals("hide")) {
-	    if (!switchTabs(args.optString(2))) {
+	    if (!switchTab(args.optString(2))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
 		return false;
             }
@@ -398,7 +399,7 @@ public class InAppBrowser extends CordovaPlugin {
             });
             PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
             pluginResult.setKeepCallback(true);
-            this.callbackContext.sendPluginResult(pluginResult);
+            tab.callbackContext.sendPluginResult(pluginResult);
         }
         else {
             return false;
@@ -600,24 +601,25 @@ public class InAppBrowser extends CordovaPlugin {
     }
 
     private void closeDialog(Tab tab) {
+	final InAppBrowser self = this;
         this.cordova.getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                final WebView childView = inAppWebView;
+                final WebView childView = tab.inAppWebView;
                 // The JS protects against multiple calls, so this should happen only when
                 // closeDialog() is called by other native code.
-                if (tab == null || tab.childView == null) {
+                if (tab == null || childView == null) {
                     return;
                 }
 
-                tab.childView.setWebViewClient(new WebViewClient() {
+                childView.setWebViewClient(new WebViewClient() {
                     // NB: wait for about:blank before dismissing
                     public void onPageFinished(WebView view, String url) {
                         if (tab.dialog != null && !cordova.getActivity().isFinishing()) {
                             tab.dialog.dismiss();
                             tab.dialog = null;
-			    if (this.tab == tab)
-				this.tab = null;
+			    if (self.tab == tab)
+				self.tab = null;
 			    tabs.remove(tab.id);
                         }
                     }
@@ -625,7 +627,7 @@ public class InAppBrowser extends CordovaPlugin {
                 // NB: From SDK 19: "If you call methods on WebView from any thread
                 // other than your app's UI thread, it can cause unexpected results."
                 // http://developer.android.com/guide/webapps/migrating.html#Threads
-                tab.childView.loadUrl("about:blank");
+                childView.loadUrl("about:blank");
 
                 try {
                     JSONObject obj = new JSONObject();
@@ -665,16 +667,13 @@ public class InAppBrowser extends CordovaPlugin {
      */
     public void goBack(String tabId) {
 	final Tab tab = this.tabs.get(tabId);
-        if (tab != null && tab.inAppWebView.canGoBack()) {
-            tab.inAppWebView.goBack();
-        }
+	this.goBack(tab);
     }
 
     /**
      * Checks to see if it is possible to go back one page in history, then does so.
      */
-    public void goBack(Tab tab) {
-	final Tab tab = this.tabs.get(tabId);
+    private void goBack(Tab tab) {
         if (tab != null && tab.inAppWebView.canGoBack()) {
             tab.inAppWebView.goBack();
         }
@@ -698,7 +697,7 @@ public class InAppBrowser extends CordovaPlugin {
      * Has the user set the hardware back button to go back
      * @return boolean
      */
-    public boolean hardwareBack(Stringg tabId) {
+    public boolean hardwareBack(String tabId) {
 	final Tab tab = this.tabs.get(tabId);
 	if (tab != null) {
 	    return tab.hardwareBackButton;
@@ -725,7 +724,7 @@ public class InAppBrowser extends CordovaPlugin {
      */
     private void navigate(Tab tab, String url) {
         InputMethodManager imm = (InputMethodManager)this.cordova.getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
-        imm.hideSoftInputFromWindow(edittext.getWindowToken(), 0);
+        imm.hideSoftInputFromWindow(tab.edittext.getWindowToken(), 0);
 
         if (!url.startsWith("http") && !url.startsWith("file:")) {
             tab.inAppWebView.loadUrl("http://" + url);
@@ -845,6 +844,8 @@ public class InAppBrowser extends CordovaPlugin {
             }
         }
 
+	final CordovaWebView thatWebView = this.webView;
+
         // Create dialog in new thread
         Runnable runnable = new Runnable() {
             /**
@@ -934,7 +935,7 @@ public class InAppBrowser extends CordovaPlugin {
                 // Toolbar layout
                 RelativeLayout toolbar = new RelativeLayout(cordova.getActivity());
                 //Please, no more black!
-                toolbar.setBackgroundColor(toolbarColor);
+                toolbar.setBackgroundColor(tab.toolbarColor);
                 toolbar.setLayoutParams(new RelativeLayout.LayoutParams(LayoutParams.MATCH_PARENT, this.dpToPixels(TOOLBAR_HEIGHT)));
                 toolbar.setPadding(this.dpToPixels(2), this.dpToPixels(2), this.dpToPixels(2), this.dpToPixels(2));
                 if (tab.leftToRight) {
@@ -1015,7 +1016,7 @@ public class InAppBrowser extends CordovaPlugin {
                     public boolean onKey(View v, int keyCode, KeyEvent event) {
                         // If the event is a key-down event on the "enter" button
                         if ((event.getAction() == KeyEvent.ACTION_DOWN) && (keyCode == KeyEvent.KEYCODE_ENTER)) {
-                            navigate(tab, edittext.getText().toString());
+                            navigate(tab, tab.edittext.getText().toString());
                             return true;
                         }
                         return false;
@@ -1053,15 +1054,15 @@ public class InAppBrowser extends CordovaPlugin {
                 tab.inAppWebView.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
                 tab.inAppWebView.setId(Integer.valueOf(6));
                 // File Chooser Implemented ChromeClient
-                tab.inAppWebView.setWebChromeClient(new InAppChromeClient(tab.webView) {
+                tab.inAppWebView.setWebChromeClient(new InAppChromeClient(thatWebView) {
                     public boolean onShowFileChooser (WebView webView, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams)
                     {
                         LOG.d(LOG_TAG, "File Chooser 5.0+");
                         // If callback exists, finish it.
-                        if(mUploadCallback != null) {
-                            mUploadCallback.onReceiveValue(null);
+                        if(tab.mUploadCallback != null) {
+                            tab.mUploadCallback.onReceiveValue(null);
                         }
-                        mUploadCallback = filePathCallback;
+                        tab.mUploadCallback = filePathCallback;
 
                         // Create File Chooser Intent
                         Intent content = new Intent(Intent.ACTION_GET_CONTENT);
@@ -1073,7 +1074,7 @@ public class InAppBrowser extends CordovaPlugin {
                         return true;
                     }
                 });
-                tab.currentClient = new InAppBrowserClient(tab, tab.edittext, tab.beforeload);
+                tab.currentClient = new InAppBrowserClient(tab, thatWebView, tab.edittext, tab.beforeload);
                 tab.inAppWebView.setWebViewClient(tab.currentClient);
                 WebSettings settings = tab.inAppWebView.getSettings();
                 settings.setJavaScriptEnabled(true);
@@ -1121,7 +1122,7 @@ public class InAppBrowser extends CordovaPlugin {
 
                 if (tab.clearAllCache) {
                     CookieManager.getInstance().removeAllCookie();
-                } else if (clearSessionCache) {
+                } else if (tab.clearSessionCache) {
                     CookieManager.getInstance().removeSessionCookie();
                 }
 
@@ -1131,7 +1132,7 @@ public class InAppBrowser extends CordovaPlugin {
                 tab.inAppWebView.loadUrl(url);
                 tab.inAppWebView.setId(Integer.valueOf(6));
                 tab.inAppWebView.getSettings().setLoadWithOverviewMode(true);
-                tab.inAppWebView.getSettings().setUseWideViewPort(useWideViewPort);
+                tab.inAppWebView.getSettings().setUseWideViewPort(tab.useWideViewPort);
                 // Multiple Windows set to true to mitigate Chromium security bug.
                 //  See: https://bugs.chromium.org/p/chromium/issues/detail?id=1083819
                 tab.inAppWebView.getSettings().setSupportMultipleWindows(true);
@@ -1144,7 +1145,7 @@ public class InAppBrowser extends CordovaPlugin {
 
                 // Add the views to our toolbar if they haven't been disabled
                 if (!tab.hideNavigationButtons) toolbar.addView(actionButtonContainer);
-                if (!tab.hideUrlBar) toolbar.addView(edittext);
+                if (!tab.hideUrlBar) toolbar.addView(tab.edittext);
 
                 // Don't add the toolbar if its been disabled
                 if (tab.showLocationBar) { //getShowLocationBar()) {
@@ -1163,7 +1164,7 @@ public class InAppBrowser extends CordovaPlugin {
                 }
 
                 WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
-                lp.copyFrom(dialog.getWindow().getAttributes());
+                lp.copyFrom(tab.dialog.getWindow().getAttributes());
                 lp.width = WindowManager.LayoutParams.MATCH_PARENT;
                 lp.height = WindowManager.LayoutParams.MATCH_PARENT;
 
@@ -1219,12 +1220,12 @@ public class InAppBrowser extends CordovaPlugin {
     public void onActivityResult(int requestCode, int resultCode, Intent intent) {
         LOG.d(LOG_TAG, "onActivityResult");
         // If RequestCode or Callback is Invalid
-        if(requestCode != FILECHOOSER_REQUESTCODE || mUploadCallback == null) {
+        if(requestCode != FILECHOOSER_REQUESTCODE || this.tab.mUploadCallback == null) {
             super.onActivityResult(requestCode, resultCode, intent);
             return;
         }
-        mUploadCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, intent));
-        mUploadCallback = null;
+        this.tab.mUploadCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, intent));
+        this.tab.mUploadCallback = null;
     }
 
     /**
@@ -1243,9 +1244,9 @@ public class InAppBrowser extends CordovaPlugin {
          * @param webView
          * @param mEditText
          */
-        public InAppBrowserClient(Tab tab, EditText mEditText, String beforeload) {
+        public InAppBrowserClient(Tab tab, CordovaWebView webView, EditText mEditText, String beforeload) {
 	    this.tab = tab;
-            this.webView = tab.webView;
+            this.webView = webView;
             this.edittext = mEditText;
             this.beforeload = beforeload;
             this.waitForBeforeload = beforeload != null;
@@ -1381,14 +1382,14 @@ public class InAppBrowser extends CordovaPlugin {
             }
             // Test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
             else if (!url.startsWith("http:") && !url.startsWith("https:") && url.matches("^[A-Za-z0-9+.-]*://.*?$")) {
-                if (allowedSchemes == null) {
+                if (tab.allowedSchemes == null) {
                     String allowed = preferences.getString("AllowedSchemes", null);
                     if(allowed != null) {
-                        allowedSchemes = allowed.split(",");
+                        tab.allowedSchemes = allowed.split(",");
                     }
                 }
-                if (allowedSchemes != null) {
-                    for (String scheme : allowedSchemes) {
+                if (tab.allowedSchemes != null) {
+                    for (String scheme : tab.allowedSchemes) {
                         if (url.startsWith(scheme)) {
                             try {
                                 JSONObject obj = new JSONObject();
