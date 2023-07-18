@@ -323,8 +323,8 @@ public class InAppBrowser extends CordovaPlugin {
 
             String jsWrapper = null;
             if (args.getBoolean(1)) {
-		//                jsWrapper = String.format("(function(){prompt(JSON.stringify([eval(%%s)]), 'gap-iab://%s')})()", callbackContext.getCallbackId());
-                jsWrapper = String.format("(function(){prompt(JSON.stringify([(function (){ %%s; })()]), 'gap-iab://%s')})()", callbackContext.getCallbackId());
+		jsWrapper = String.format("(function(){prompt(JSON.stringify([eval(%%s)]), 'gap-iab://%s')})()", callbackContext.getCallbackId());
+                // jsWrapper = String.format("(function(){prompt(JSON.stringify([(function (){ %%s; })()]), 'gap-iab://%s')})()", callbackContext.getCallbackId());
             }
             injectDeferredObject(args.getString(0), jsWrapper);
         }
