@@ -892,7 +892,7 @@ public class InAppBrowser extends CordovaPlugin {
             if (topOffsetSet != null) {
 		try {
 		    tab.topOffset = Integer.parseInt(topOffsetSet);
-		    LOG.d(LOG_TAG, "tab.topOffset " + String.valueOf(tab.topOffset));
+		    // LOG.d(LOG_TAG, "tab.topOffset " + String.valueOf(tab.topOffset));
 		}
 		catch (NumberFormatException ex){
 		    LOG.e(LOG_TAG, "topoffset invalid " + topOffsetSet);
@@ -992,6 +992,10 @@ public class InAppBrowser extends CordovaPlugin {
                 tab.dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
                 if (tab.fullscreen) {
                     tab.dialog.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                }
+                else {
+                    tab.dialog.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                    tab.dialog.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
                 }
                 tab.dialog.setCancelable(true);
                 tab.dialog.setInAppBrowser(getInAppBrowser(), tab.id);
@@ -1267,20 +1271,24 @@ public class InAppBrowser extends CordovaPlugin {
 
                 WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
                 lp.copyFrom(tab.dialog.getWindow().getAttributes());
-		lp.gravity = Gravity.BOTTOM;
+		        lp.gravity = Gravity.BOTTOM;
                 lp.width = WindowManager.LayoutParams.MATCH_PARENT;
-		if (tab.topOffset > 0) {
+		        if (!tab.fullscreen && tab.topOffset > 0) {
 		    // int offset = 0;
 		    // int resourceId = cordova.getActivity().getResources().getIdentifier("status_bar_height", "dimen", "android");
 		    // if (resourceId > 0) {
 		    // 	offset = cordova.getActivity().getResources().getDimensionPixelSize(resourceId);
 		    // }
 
-		    lp.height = (int)(activityRes.getDisplayMetrics().heightPixels - getWindowOffset() - tab.topOffset);
-		}
-		else {
-		    lp.height = WindowManager.LayoutParams.MATCH_PARENT;
-		}
+                    if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        lp.height = (int) (activityRes.getDisplayMetrics().heightPixels + getWindowOffset() - tab.topOffset);
+                    } else {
+                        lp.height = (int) (activityRes.getDisplayMetrics().heightPixels - tab.topOffset);
+                    }
+		        }
+		        else {
+		            lp.height = WindowManager.LayoutParams.MATCH_PARENT;
+		        }
 
                 if (tab.dialog != null) {
                     tab.dialog.setContentView(main);
