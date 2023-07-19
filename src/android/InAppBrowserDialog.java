@@ -21,9 +21,13 @@ package org.apache.cordova.inappbrowser;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
+import android.view.MotionEvent;
+import android.graphics.Rect;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import org.apache.cordova.LOG;
 
 /**
  * Created by Oliver on 22/11/2013.
@@ -55,5 +59,20 @@ public class InAppBrowserDialog extends Dialog {
                 this.inAppBrowser.doneDialog(tabId);
             }
         }
+    }
+
+    public boolean onTouchEvent(MotionEvent event) {
+
+	if (MotionEvent.ACTION_DOWN == event.getAction()) {
+	    Rect dialogBounds = new Rect();
+	    getWindow().getDecorView().getHitRect(dialogBounds);
+	    if (!dialogBounds.contains((int) event.getX(), (int) event.getY())) {
+		this.inAppBrowser.outsideClick(tabId, (int)event.getX(), (int)event.getY());
+		return true;
+	    }
+	}
+
+	// Touch events inside are fine.
+	return super.onTouchEvent(event);
     }
 }

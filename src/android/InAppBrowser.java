@@ -30,6 +30,7 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.net.http.SslError;
 import android.net.Uri;
 import android.os.Build;
@@ -93,6 +94,7 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String EXIT_EVENT = "exit";
     private static final String HIDE_EVENT = "hide";
     private static final String MENU_EVENT = "menu";
+    private static final String CLICK_EVENT = "click";
     private static final String LOCATION = "location";
     private static final String ZOOM = "zoom";
     private static final String HIDDEN = "hidden";
@@ -120,10 +122,11 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String FOOTER_COLOR = "footercolor";
     private static final String BEFORELOAD = "beforeload";
     private static final String FULLSCREEN = "fullscreen";
+    private static final String TOP_OFFSET = "topoffset";
 
     private static final int TOOLBAR_HEIGHT = 48;
 
-    private static final List customizableOptions = Arrays.asList(CLOSE_BUTTON_CAPTION, TOOLBAR_COLOR, NAVIGATION_COLOR, CLOSE_BUTTON_COLOR, FOOTER_COLOR);
+    private static final List customizableOptions = Arrays.asList(CLOSE_BUTTON_CAPTION, TOOLBAR_COLOR, NAVIGATION_COLOR, CLOSE_BUTTON_COLOR, FOOTER_COLOR, TOP_OFFSET);
 
     final static int FILECHOOSER_REQUESTCODE = 1;
 
@@ -157,6 +160,7 @@ public class InAppBrowser extends CordovaPlugin {
 	String beforeload = "";
 	boolean fullscreen = true;
 	String[] allowedSchemes;
+	int topOffset = 0;
 	InAppBrowserClient currentClient;
     }
 
@@ -594,6 +598,26 @@ public class InAppBrowser extends CordovaPlugin {
         }
     }
 
+    public void outsideClick(String tabId, int x, int y) {
+	final Tab tab = this.tabs.get(tabId);
+	if (tab != null) {
+	    final int parentX = x;
+	    final int parentY = tab.topOffset + y; // y is negative bcs outside
+	    LOG.d(LOG_TAG, "click x "+String.valueOf(parentX) + " y "+String.valueOf(parentY));
+	    if (parentX >= 0 && parentY >= 0) {
+		try {
+		    JSONObject obj = new JSONObject();
+		    obj.put("type", CLICK_EVENT);
+		    obj.put("x", parentX);
+		    obj.put("y", parentY);
+		    sendUpdate(tab, obj, true);
+		} catch (JSONException ex) {
+		    LOG.d(LOG_TAG, "Should never happen");
+		}
+	    }
+	}
+    }
+
     /**
      * Closes the dialog
      */
@@ -758,6 +782,16 @@ public class InAppBrowser extends CordovaPlugin {
         return this;
     }
 
+    private int getWindowOffset() {
+	int offset = 0;
+	int resourceId = cordova.getActivity().getResources().getIdentifier("status_bar_height", "dimen", "android");
+	if (resourceId > 0) {
+	    offset = cordova.getActivity().getResources().getDimensionPixelSize(resourceId);
+	}
+
+	return offset;
+    }
+
     /**
      * Display a new browser with the specified URL.
      *
@@ -854,6 +888,16 @@ public class InAppBrowser extends CordovaPlugin {
             if (fullscreenSet != null) {
                 tab.fullscreen = fullscreenSet.equals("yes") ? true : false;
             }
+            String topOffsetSet = features.get(TOP_OFFSET);
+            if (topOffsetSet != null) {
+		try {
+		    tab.topOffset = Integer.parseInt(topOffsetSet);
+		    LOG.d(LOG_TAG, "tab.topOffset " + String.valueOf(tab.topOffset));
+		}
+		catch (NumberFormatException ex){
+		    LOG.e(LOG_TAG, "topoffset invalid " + topOffsetSet);
+		}
+            }
         }
 
 	final CordovaWebView thatWebView = this.webView;
@@ -868,6 +912,15 @@ public class InAppBrowser extends CordovaPlugin {
             private int dpToPixels(int dipValue) {
                 int value = (int) TypedValue.applyDimension( TypedValue.COMPLEX_UNIT_DIP,
                         (float) dipValue,
+                        cordova.getActivity().getResources().getDisplayMetrics()
+                );
+
+                return value;
+            }
+
+            private int pxToDp(int pxValue) {
+                int value = (int) TypedValue.applyDimension( TypedValue.COMPLEX_UNIT_PX,
+                        (float) pxValue,
                         cordova.getActivity().getResources().getDisplayMetrics()
                 );
 
@@ -1214,12 +1267,33 @@ public class InAppBrowser extends CordovaPlugin {
 
                 WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
                 lp.copyFrom(tab.dialog.getWindow().getAttributes());
+		lp.gravity = Gravity.BOTTOM;
                 lp.width = WindowManager.LayoutParams.MATCH_PARENT;
-                lp.height = WindowManager.LayoutParams.MATCH_PARENT;
+		if (tab.topOffset > 0) {
+		    // int offset = 0;
+		    // int resourceId = cordova.getActivity().getResources().getIdentifier("status_bar_height", "dimen", "android");
+		    // if (resourceId > 0) {
+		    // 	offset = cordova.getActivity().getResources().getDimensionPixelSize(resourceId);
+		    // }
+
+		    lp.height = (int)(activityRes.getDisplayMetrics().heightPixels - getWindowOffset() - tab.topOffset);
+		}
+		else {
+		    lp.height = WindowManager.LayoutParams.MATCH_PARENT;
+		}
 
                 if (tab.dialog != null) {
                     tab.dialog.setContentView(main);
                     tab.dialog.show();
+
+		    Window window = tab.dialog.getWindow();
+		    //window.setFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+		    // WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH);
+		    // window.setFlags(WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+		    // WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH);
+
+		    //		    window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+
                     tab.dialog.getWindow().setAttributes(lp);
                 }
                 // the goal of openhidden is to load the url and not display it
