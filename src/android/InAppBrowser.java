@@ -123,10 +123,11 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String BEFORELOAD = "beforeload";
     private static final String FULLSCREEN = "fullscreen";
     private static final String TOP_OFFSET = "topoffset";
+    private static final String DATABASE = "database";
 
     private static final int TOOLBAR_HEIGHT = 48;
 
-    private static final List customizableOptions = Arrays.asList(CLOSE_BUTTON_CAPTION, TOOLBAR_COLOR, NAVIGATION_COLOR, CLOSE_BUTTON_COLOR, FOOTER_COLOR, TOP_OFFSET);
+    private static final List customizableOptions = Arrays.asList(CLOSE_BUTTON_CAPTION, TOOLBAR_COLOR, NAVIGATION_COLOR, CLOSE_BUTTON_COLOR, FOOTER_COLOR, TOP_OFFSET, DATABASE);
 
     final static int FILECHOOSER_REQUESTCODE = 1;
 
@@ -161,6 +162,7 @@ public class InAppBrowser extends CordovaPlugin {
 	boolean fullscreen = true;
 	String[] allowedSchemes;
 	int topOffset = 0;
+	String database = "";
 	InAppBrowserClient currentClient;
     }
 
@@ -890,17 +892,28 @@ public class InAppBrowser extends CordovaPlugin {
             }
             String topOffsetSet = features.get(TOP_OFFSET);
             if (topOffsetSet != null) {
-		try {
-		    tab.topOffset = Integer.parseInt(topOffsetSet);
-		    // LOG.d(LOG_TAG, "tab.topOffset " + String.valueOf(tab.topOffset));
-		}
-		catch (NumberFormatException ex){
-		    LOG.e(LOG_TAG, "topoffset invalid " + topOffsetSet);
-		}
+                try {
+		            tab.topOffset = Integer.parseInt(topOffsetSet);
+                    // LOG.d(LOG_TAG, "tab.topOffset " + String.valueOf(tab.topOffset));
+                }
+                catch (NumberFormatException ex){
+		            LOG.e(LOG_TAG, "topoffset invalid " + topOffsetSet);
+		        }
+            }
+            String databaseSet = features.get(DATABASE);
+            if (databaseSet != null) {
+                if (databaseSet.contains("/")
+                        || databaseSet.contains(".")
+                        || databaseSet.length() > 32) {
+                    LOG.e(LOG_TAG, "database invalid " + database);
+                }
+                else {
+                    tab.database = databaseSet;
+                }
             }
         }
 
-	final CordovaWebView thatWebView = this.webView;
+        final CordovaWebView thatWebView = this.webView;
 
         // Create dialog in new thread
         Runnable runnable = new Runnable() {
@@ -1220,7 +1233,12 @@ public class InAppBrowser extends CordovaPlugin {
                 Bundle appSettings = cordova.getActivity().getIntent().getExtras();
                 boolean enableDatabase = appSettings == null ? true : appSettings.getBoolean("InAppBrowserStorageEnabled", true);
                 if (enableDatabase) {
-                    String databasePath = cordova.getActivity().getApplicationContext().getDir("inAppBrowserDB", Context.MODE_PRIVATE).getPath();
+                    String dir = "inAppBrowserDB";
+                    if (tab.database != "") {
+                        dir += "_" + tab.database;
+                    }
+                    LOG.d(LOG_TAG, "webview database path " + dir);
+                    String databasePath = cordova.getActivity().getApplicationContext().getDir(dir, Context.MODE_PRIVATE).getPath();
                     settings.setDatabasePath(databasePath);
                     settings.setDatabaseEnabled(true);
                 }
@@ -1232,8 +1250,8 @@ public class InAppBrowser extends CordovaPlugin {
                     CookieManager.getInstance().removeSessionCookie();
                 }
 
-                // Enable Thirdparty Cookies
-                CookieManager.getInstance().setAcceptThirdPartyCookies(tab.inAppWebView, true);
+                // disable thirdparty cookies
+                CookieManager.getInstance().setAcceptThirdPartyCookies(tab.inAppWebView, false);
 
                 tab.inAppWebView.loadUrl(url);
                 tab.inAppWebView.setId(Integer.valueOf(6));
