@@ -904,8 +904,8 @@ public class InAppBrowser extends CordovaPlugin {
             if (databaseSet != null) {
                 if (databaseSet.contains("/")
                         || databaseSet.contains(".")
-                        || databaseSet.length() > 32) {
-                    LOG.e(LOG_TAG, "database invalid " + database);
+                        || databaseSet.length() > 96) {
+                    LOG.e(LOG_TAG, "database invalid " + databaseSet);
                 }
                 else {
                     tab.database = databaseSet;
