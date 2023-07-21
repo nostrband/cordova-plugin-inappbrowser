@@ -330,7 +330,7 @@ public class InAppBrowser extends CordovaPlugin {
             String jsWrapper = null;
             if (args.getBoolean(1)) {
 		// jsWrapper = String.format("(function(){prompt(JSON.stringify([eval(%%s)]), 'gap-iab://%s')})()", callbackContext.getCallbackId());
-                jsWrapper = String.format("(function(){prompt(JSON.stringify([(function (){ %%s; })()]), 'gap-iab://%s')})()", callbackContext.getCallbackId());
+                jsWrapper = String.format("(function(){prompt(JSON.stringify([(function (){ %%s;\n })()]), 'gap-iab://%s')})()", callbackContext.getCallbackId());
             }
             injectDeferredObject(args.getString(0), jsWrapper);
         }
@@ -1252,6 +1252,8 @@ public class InAppBrowser extends CordovaPlugin {
 
                 // disable thirdparty cookies
                 CookieManager.getInstance().setAcceptThirdPartyCookies(tab.inAppWebView, false);
+		String cookies = CookieManager.getInstance().getCookie(url);
+                LOG.d(LOG_TAG, "cookies url "+url+" value "+cookies);
 
                 tab.inAppWebView.loadUrl(url);
                 tab.inAppWebView.setId(Integer.valueOf(6));
