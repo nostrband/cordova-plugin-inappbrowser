@@ -1023,7 +1023,6 @@ public class InAppBrowser extends CordovaPlugin {
                     tab.dialog.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
                 }
                 tab.dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-);
                 tab.dialog.setCancelable(true);
                 tab.dialog.setInAppBrowser(getInAppBrowser(), tab.id);
 
