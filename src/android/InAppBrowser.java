@@ -38,6 +38,7 @@ import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -599,13 +600,13 @@ public class InAppBrowser extends CordovaPlugin {
         }
     }
 
-    public void outsideClick(String tabId, int x, int y) {
+    public void outsideMotion(String tabId, MotionEvent event) {
         final Tab tab = this.tabs.get(tabId);
         if (tab != null) {
-            final int parentX = x;
-            final int parentY = y - getWindowOffset();
+            final int parentX = (int)event.getX();
+            final int parentY = (int)event.getY() - getWindowOffset();
             LOG.d(LOG_TAG, "click x " + parentX + " y " + parentY);
-            if (parentX >= 0 && parentY >= 0) {
+            if (parentX >= 0 && parentY >= 0 && event.getAction() == MotionEvent.ACTION_UP) {
                 try {
                     JSONObject obj = new JSONObject();
                     obj.put("type", CLICK_EVENT);
@@ -1015,7 +1016,7 @@ public class InAppBrowser extends CordovaPlugin {
 
                 // Let's create the main dialog
                 tab.dialog = new InAppBrowserDialog(cordova.getActivity(), android.R.style.Theme_NoTitleBar);
-                tab.dialog.getWindow().getAttributes().windowAnimations = android.R.style.Animation_Translucent;
+                tab.dialog.getWindow().getAttributes().windowAnimations = android.R.style.Animation_Dialog;
                 tab.dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
                 if (tab.fullscreen) {
                     tab.dialog.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -1702,7 +1703,7 @@ public class InAppBrowser extends CordovaPlugin {
             // LOG.d(LOG_TAG, "child page onPageFinished" + url);
 
             // Set the namespace for postMessage()
-            injectDeferredObject("window.webkit={messageHandlers:{cordova_iab:cordova_iab}}", null);
+            injectDeferredObject("window.webkit={messageHandlers:{cordova_iab:cordova_iab}};", null);
 
             // CB-10395 InAppBrowser's WebView not storing cookies reliable to local device storage
             CookieManager.getInstance().flush();
