@@ -62,20 +62,8 @@ public class InAppBrowserDialog extends Dialog {
     }
 
     public boolean onTouchEvent(MotionEvent event) {
-
-        if (MotionEvent.ACTION_DOWN == event.getAction()) {
-//            LOG.d("dialog", "x " + event.getX()+ " y " + event.getRawY());
-            this.inAppBrowser.outsideClick(tabId, (int)event.getX(), (int)event.getY());
-            return true;
-//            Rect dialogBounds = new Rect();
-//            getWindow().getDecorView().getHitRect(dialogBounds);
-//            if (!dialogBounds.contains((int) event.getX(), (int) event.getY())) {
-//                this.inAppBrowser.outsideClick(tabId, (int)event.getX(), (int)event.getY());
-//                return true;
-//            }
-        }
-
-        // Touch events inside are fine.
-        return super.onTouchEvent(event);
+        this.inAppBrowser.outsideMotion(tabId, event);
+        return false;
+//        return super.onTouchEvent(event);
     }
 }
