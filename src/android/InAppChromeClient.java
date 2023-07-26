@@ -41,9 +41,14 @@ public class InAppChromeClient extends WebChromeClient {
     private String LOG_TAG = "InAppChromeClient";
     private long MAX_QUOTA = 100 * 1024 * 1024;
 
-    public InAppChromeClient(CordovaWebView webView) {
+    InAppBrowser inAppBrowser = null;
+    String tabId = "";
+
+    public InAppChromeClient(CordovaWebView webView, InAppBrowser browser, String tabId) {
         super();
         this.webView = webView;
+        this.inAppBrowser = browser;
+        this.tabId = tabId;
     }
     /**
      * Handle database quota exceeded notification.
@@ -154,22 +159,31 @@ public class InAppChromeClient extends WebChromeClient {
      */
     @Override
     public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+
         WebView inAppWebView = view;
         final WebViewClient webViewClient =
                 new WebViewClient() {
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                        inAppWebView.loadUrl(request.getUrl().toString());
-                        return true;
+                        return this.shouldOverrideUrlLoading(view, request.getUrl().toString());
                     }
 
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                        inAppWebView.loadUrl(url);
+                        if (inAppBrowser.isBeforeBlank(tabId)) {
+                            if (isUserGesture)
+                                inAppBrowser.onBeforeBlank(tabId, url);
+                        } else {
+                            inAppWebView.loadUrl(url);
+                        }
                         return true;
                     }
                 };
 
+        // this is a disposable webview that is only created to execute
+        // the request and find out which url we're about to load, and then
+        // make a decision as to load it in the existing view or forward
+        // the request to js side
         final WebView newWebView = new WebView(view.getContext());
         newWebView.setWebViewClient(webViewClient);
 

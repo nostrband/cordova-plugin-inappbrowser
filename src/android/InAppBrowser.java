@@ -95,6 +95,7 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String HIDE_EVENT = "hide";
     private static final String MENU_EVENT = "menu";
     private static final String CLICK_EVENT = "click";
+    private static final String BLANK_EVENT = "blank";
     private static final String LOCATION = "location";
     private static final String ZOOM = "zoom";
     private static final String HIDDEN = "hidden";
@@ -125,6 +126,7 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String TOP_OFFSET = "topoffset";
     private static final String BOTTOM_OFFSET = "bottomoffset";
     private static final String DATABASE = "database";
+    private static final String BEFOREBLANK = "beforeblank";
 
     private static final int TOOLBAR_HEIGHT = 48;
 
@@ -165,6 +167,8 @@ public class InAppBrowser extends CordovaPlugin {
         int topOffset = 0;
         int bottomOffset = 0;
         String database = "";
+
+        boolean beforeblank = false;
         InAppBrowserClient currentClient;
 
         LinearLayout bottom;
@@ -600,6 +604,27 @@ public class InAppBrowser extends CordovaPlugin {
         }
     }
 
+    public boolean isBeforeBlank(String tabId) {
+        final Tab tab = this.tabs.get(tabId);
+        if (tab != null)
+            return tab.beforeblank;
+        return false;
+    }
+
+    public void onBeforeBlank(String tabId, String url) {
+        final Tab tab = this.tabs.get(tabId);
+        if (tab != null) {
+            try {
+                JSONObject obj = new JSONObject();
+                obj.put("type", BLANK_EVENT);
+                obj.put("url", url);
+                sendUpdate(tab, obj, true);
+            } catch (JSONException ex) {
+                LOG.d(LOG_TAG, "Bad url" + url);
+            }
+        }
+    }
+
     public void outsideMotion(String tabId, MotionEvent event) {
         final Tab tab = this.tabs.get(tabId);
         if (tab != null) {
@@ -926,6 +951,10 @@ public class InAppBrowser extends CordovaPlugin {
                     tab.database = databaseSet;
                 }
             }
+            String beforeblankSet = features.get(BEFOREBLANK);
+            if (beforeblankSet != null) {
+                tab.beforeblank = beforeblankSet.equals("yes") ? true : false;
+            }
         }
 
         final CordovaWebView thatWebView = this.webView;
@@ -1191,7 +1220,7 @@ public class InAppBrowser extends CordovaPlugin {
                 tab.inAppWebView.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
                 tab.inAppWebView.setId(Integer.valueOf(8));
                 // File Chooser Implemented ChromeClient
-                tab.inAppWebView.setWebChromeClient(new InAppChromeClient(thatWebView) {
+                tab.inAppWebView.setWebChromeClient(new InAppChromeClient(thatWebView, getInAppBrowser(), tab.id) {
                     public boolean onShowFileChooser (WebView webView, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams)
                     {
                         LOG.d(LOG_TAG, "File Chooser 5.0+");
@@ -1703,7 +1732,7 @@ public class InAppBrowser extends CordovaPlugin {
             // LOG.d(LOG_TAG, "child page onPageFinished" + url);
 
             // Set the namespace for postMessage()
-            injectDeferredObject("window.webkit={messageHandlers:{cordova_iab:cordova_iab}};", null);
+            injectDeferredObject("window.webkit={messageHandlers:{cordova_iab:cordova_iab}}", null);
 
             // CB-10395 InAppBrowser's WebView not storing cookies reliable to local device storage
             CookieManager.getInstance().flush();

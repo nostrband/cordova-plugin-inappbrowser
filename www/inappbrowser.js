@@ -34,7 +34,8 @@
             exit: channel.create('exit'),
             hide: channel.create('hide'),
             menu: channel.create('menu'),
-	    click: channel.create('click'),
+            click: channel.create('click'),
+            blank: channel.create('blank'),
             customscheme: channel.create('customscheme'),
             message: channel.create('message')
         };
