@@ -30,7 +30,6 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.graphics.Color;
-import android.graphics.Rect;
 import android.net.http.SslError;
 import android.net.Uri;
 import android.os.Build;
@@ -166,10 +165,16 @@ public class InAppBrowser extends CordovaPlugin {
         int bottomOffset = 0;
         String database = "";
         InAppBrowserClient currentClient;
+
+        LinearLayout bottom;
+
+        RelativeLayout webViewLayout;
+        RelativeLayout.LayoutParams wlp;
     }
 
     private HashMap<String, Tab> tabs = new HashMap<String, Tab>();
     private Tab tab; // current tab
+    private boolean isKeyboardShowing = false;
 
     private boolean switchTab(final String tabId) {
         this.tab = tabs.get(tabId);
@@ -189,8 +194,8 @@ public class InAppBrowser extends CordovaPlugin {
     /**
      * Executes the request and returns PluginResult.
      *
-     * @param action the action to execute.
-     * @param args JSONArry of arguments for the plugin.
+     * @param action          the action to execute.
+     * @param args            JSONArry of arguments for the plugin.
      * @param callbackContext the callbackContext used when calling back into JavaScript.
      * @return A PluginResult object with a status and message.
      */
@@ -213,6 +218,7 @@ public class InAppBrowser extends CordovaPlugin {
             this.cordova.getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+
                     String result = "";
                     // SELF
                     if (SELF.equals(target)) {
@@ -229,7 +235,7 @@ public class InAppBrowser extends CordovaPlugin {
                         if (shouldAllowNavigation == null) {
                             try {
                                 Method iuw = Config.class.getMethod("isUrlWhiteListed", String.class);
-                                shouldAllowNavigation = (Boolean)iuw.invoke(null, url);
+                                shouldAllowNavigation = (Boolean) iuw.invoke(null, url);
                             } catch (NoSuchMethodException e) {
                                 LOG.d(LOG_TAG, e.getLocalizedMessage());
                             } catch (IllegalAccessException e) {
@@ -241,9 +247,9 @@ public class InAppBrowser extends CordovaPlugin {
                         if (shouldAllowNavigation == null) {
                             try {
                                 Method gpm = webView.getClass().getMethod("getPluginManager");
-                                PluginManager pm = (PluginManager)gpm.invoke(webView);
+                                PluginManager pm = (PluginManager) gpm.invoke(webView);
                                 Method san = pm.getClass().getMethod("shouldAllowNavigation", String.class);
-                                shouldAllowNavigation = (Boolean)san.invoke(pm, url);
+                                shouldAllowNavigation = (Boolean) san.invoke(pm, url);
                             } catch (NoSuchMethodException e) {
                                 LOG.d(LOG_TAG, e.getLocalizedMessage());
                             } catch (IllegalAccessException e) {
@@ -258,8 +264,7 @@ public class InAppBrowser extends CordovaPlugin {
                             webView.loadUrl(url);
                         }
                         //Load the dialer
-                        else if (url.startsWith(WebView.SCHEME_TEL))
-                        {
+                        else if (url.startsWith(WebView.SCHEME_TEL)) {
                             try {
                                 LOG.d(LOG_TAG, "loading in dialer");
                                 Intent intent = new Intent(Intent.ACTION_DIAL);
@@ -291,15 +296,13 @@ public class InAppBrowser extends CordovaPlugin {
                     callbackContext.sendPluginResult(pluginResult);
                 }
             });
-        }
-        else if (action.equals("close")) {
+        } else if (action.equals("close")) {
             if (!switchTab(args.optString(0))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
                 return false;
             }
             closeDialog(this.tab);
-        }
-        else if (action.equals("loadAfterBeforeload")) {
+        } else if (action.equals("loadAfterBeforeload")) {
             if (!switchTab(args.optString(1))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
                 return false;
@@ -317,13 +320,12 @@ public class InAppBrowser extends CordovaPlugin {
                         tab.currentClient.waitForBeforeload = false;
                         tab.inAppWebView.setWebViewClient(tab.currentClient);
                     } else {
-                        ((InAppBrowserClient)tab.inAppWebView.getWebViewClient()).waitForBeforeload = false;
+                        ((InAppBrowserClient) tab.inAppWebView.getWebViewClient()).waitForBeforeload = false;
                     }
                     tab.inAppWebView.loadUrl(url);
                 }
             });
-        }
-        else if (action.equals("injectScriptCode")) {
+        } else if (action.equals("injectScriptCode")) {
             if (!switchTab(args.optString(2))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
                 return false;
@@ -335,8 +337,7 @@ public class InAppBrowser extends CordovaPlugin {
                 jsWrapper = String.format("(function(){prompt(JSON.stringify([(function (){ %%s;\n })()]), 'gap-iab://%s')})()", callbackContext.getCallbackId());
             }
             injectDeferredObject(args.getString(0), jsWrapper);
-        }
-        else if (action.equals("injectScriptFile")) {
+        } else if (action.equals("injectScriptFile")) {
             if (!switchTab(args.optString(2))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
                 return false;
@@ -349,8 +350,7 @@ public class InAppBrowser extends CordovaPlugin {
                 jsWrapper = "(function(d) { var c = d.createElement('script'); c.src = %s; d.body.appendChild(c); })(document)";
             }
             injectDeferredObject(args.getString(0), jsWrapper);
-        }
-        else if (action.equals("injectStyleCode")) {
+        } else if (action.equals("injectStyleCode")) {
             if (!switchTab(args.optString(2))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
                 return false;
@@ -363,8 +363,7 @@ public class InAppBrowser extends CordovaPlugin {
                 jsWrapper = "(function(d) { var c = d.createElement('style'); c.innerHTML = %s; d.body.appendChild(c); })(document)";
             }
             injectDeferredObject(args.getString(0), jsWrapper);
-        }
-        else if (action.equals("injectStyleFile")) {
+        } else if (action.equals("injectStyleFile")) {
             if (!switchTab(args.optString(2))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
                 return false;
@@ -377,8 +376,7 @@ public class InAppBrowser extends CordovaPlugin {
                 jsWrapper = "(function(d) { var c = d.createElement('link'); c.rel='stylesheet'; c.type='text/css'; c.href = %s; d.head.appendChild(c); })(document)";
             }
             injectDeferredObject(args.getString(0), jsWrapper);
-        }
-        else if (action.equals("show")) {
+        } else if (action.equals("show")) {
             if (!switchTab(args.optString(0))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
                 return false;
@@ -388,6 +386,8 @@ public class InAppBrowser extends CordovaPlugin {
                 @Override
                 public void run() {
                     if (tab.dialog != null && !cordova.getActivity().isFinishing()) {
+                        if (tab.bottom != null)
+                            tab.bottom.setVisibility(View.VISIBLE);
                         tab.dialog.show();
                     }
                 }
@@ -395,8 +395,7 @@ public class InAppBrowser extends CordovaPlugin {
             PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
             pluginResult.setKeepCallback(true);
             tab.callbackContext.sendPluginResult(pluginResult);
-        }
-        else if (action.equals("hide")) {
+        } else if (action.equals("hide")) {
             if (!switchTab(args.optString(0))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
                 return false;
@@ -412,8 +411,7 @@ public class InAppBrowser extends CordovaPlugin {
             PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
             pluginResult.setKeepCallback(true);
             tab.callbackContext.sendPluginResult(pluginResult);
-        }
-        else {
+        } else {
             return false;
         }
         return true;
@@ -424,7 +422,7 @@ public class InAppBrowser extends CordovaPlugin {
      */
     @Override
     public void onReset() {
-        for (Tab tab: tabs.values()) {
+        for (Tab tab : tabs.values()) {
             closeDialog(tab);
         }
     }
@@ -434,7 +432,7 @@ public class InAppBrowser extends CordovaPlugin {
      */
     @Override
     public void onPause(boolean multitasking) {
-        for (Tab tab: tabs.values()) {
+        for (Tab tab : tabs.values()) {
             if (tab.shouldPauseInAppBrowser) {
                 tab.inAppWebView.onPause();
             }
@@ -446,7 +444,7 @@ public class InAppBrowser extends CordovaPlugin {
      */
     @Override
     public void onResume(boolean multitasking) {
-        for (Tab tab: tabs.values()) {
+        for (Tab tab : tabs.values()) {
             if (tab.shouldPauseInAppBrowser) {
                 tab.inAppWebView.onResume();
             }
@@ -458,26 +456,26 @@ public class InAppBrowser extends CordovaPlugin {
      * Stop listener.
      */
     public void onDestroy() {
-        for (Tab tab: tabs.values()) {
+        for (Tab tab : tabs.values()) {
             closeDialog(tab);
         }
     }
 
     /**
      * Inject an object (script or style) into the InAppBrowser WebView.
-     *
+     * <p>
      * This is a helper method for the inject{Script|Style}{Code|File} API calls, which
      * provides a consistent method for injecting JavaScript code into the document.
-     *
+     * <p>
      * If a wrapper string is supplied, then the source string will be JSON-encoded (adding
      * quotes) and wrapped using string formatting. (The wrapper string should have a single
      * '%s' marker)
      *
-     * @param source      The source object (filename or script/style text) to inject into
-     *                    the document.
-     * @param jsWrapper   A JavaScript string to wrap the source string in, so that the object
-     *                    is properly injected, or null if the source string is JavaScript text
-     *                    which should be executed directly.
+     * @param source    The source object (filename or script/style text) to inject into
+     *                  the document.
+     * @param jsWrapper A JavaScript string to wrap the source string in, so that the object
+     *                  is properly injected, or null if the source string is JavaScript text
+     *                  which should be executed directly.
      */
     private void injectDeferredObject(String source, String jsWrapper) {
         final Tab tab = this.tab;
@@ -518,7 +516,7 @@ public class InAppBrowser extends CordovaPlugin {
             HashMap<String, String> map = new HashMap<String, String>();
             StringTokenizer features = new StringTokenizer(optString, ",");
             StringTokenizer option;
-            while(features.hasMoreElements()) {
+            while (features.hasMoreElements()) {
                 option = new StringTokenizer(features.nextToken(), "=");
                 if (option.hasMoreElements()) {
                     String key = option.nextToken();
@@ -557,7 +555,7 @@ public class InAppBrowser extends CordovaPlugin {
             return "";
             // not catching FileUriExposedException explicitly because buildtools<24 doesn't know about it
         } catch (java.lang.RuntimeException e) {
-            LOG.d(LOG_TAG, "InAppBrowser: Error loading url "+url+":"+ e.toString());
+            LOG.d(LOG_TAG, "InAppBrowser: Error loading url " + url + ":" + e.toString());
             return e.toString();
         }
     }
@@ -576,11 +574,10 @@ public class InAppBrowser extends CordovaPlugin {
 
         for (ResolveInfo ri : activities) {
             if (!currentPackage.equals(ri.activityInfo.packageName)) {
-                Intent targetIntent = (Intent)intent.clone();
+                Intent targetIntent = (Intent) intent.clone();
                 targetIntent.setPackage(ri.activityInfo.packageName);
                 targetIntents.add(targetIntent);
-            }
-            else {
+            } else {
                 hasCurrentPackage = true;
             }
         }
@@ -596,8 +593,8 @@ public class InAppBrowser extends CordovaPlugin {
         }
         // Otherwise, show a custom chooser without the current app listed
         else if (targetIntents.size() > 0) {
-            Intent chooser = Intent.createChooser(targetIntents.remove(targetIntents.size()-1), null);
-            chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, targetIntents.toArray(new Parcelable[] {}));
+            Intent chooser = Intent.createChooser(targetIntents.remove(targetIntents.size() - 1), null);
+            chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, targetIntents.toArray(new Parcelable[]{}));
             this.cordova.getActivity().startActivity(chooser);
         }
     }
@@ -607,7 +604,7 @@ public class InAppBrowser extends CordovaPlugin {
         if (tab != null) {
             final int parentX = x;
             final int parentY = y - getWindowOffset();
-            LOG.d(LOG_TAG, "click x " + parentX + " y "+parentY);
+            LOG.d(LOG_TAG, "click x " + parentX + " y " + parentY);
             if (parentX >= 0 && parentY >= 0) {
                 try {
                     JSONObject obj = new JSONObject();
@@ -630,8 +627,7 @@ public class InAppBrowser extends CordovaPlugin {
         if (tab != null) {
             if (tab.closeButtonHide) {
                 hideDialog(tab);
-            }
-            else {
+            } else {
                 closeDialog(tab);
             }
         }
@@ -719,28 +715,28 @@ public class InAppBrowser extends CordovaPlugin {
 
     /**
      * Can the web browser go back?
+     *
      * @return boolean
      */
     public boolean canGoBack(String tabId) {
         final Tab tab = this.tabs.get(tabId);
         if (tab != null) {
             return tab.inAppWebView.canGoBack();
-        }
-        else {
+        } else {
             return false;
         }
     }
 
     /**
      * Has the user set the hardware back button to go back
+     *
      * @return boolean
      */
     public boolean hardwareBack(String tabId) {
         final Tab tab = this.tabs.get(tabId);
         if (tab != null) {
             return tab.hardwareBackButton;
-        }
-        else {
+        } else {
             return false;
         }
     }
@@ -761,7 +757,7 @@ public class InAppBrowser extends CordovaPlugin {
      * @param url to load
      */
     private void navigate(Tab tab, String url) {
-        InputMethodManager imm = (InputMethodManager)this.cordova.getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+        InputMethodManager imm = (InputMethodManager) this.cordova.getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(tab.edittext.getWindowToken(), 0);
 
         if (!url.startsWith("http") && !url.startsWith("file:")) {
@@ -781,7 +777,6 @@ public class InAppBrowser extends CordovaPlugin {
     //private boolean getShowLocationBar() {
     //    return this.showLocationBar;
     //}
-
     private InAppBrowser getInAppBrowser() {
         return this;
     }
@@ -794,6 +789,13 @@ public class InAppBrowser extends CordovaPlugin {
         }
 
         return offset;
+    }
+
+    private void hideBottom(Tab tab) {
+        if (tab.bottom != null) {
+            tab.bottom.setVisibility(View.GONE);
+            LOG.d(LOG_TAG, "hide bottom");
+        }
     }
 
     /**
@@ -1022,6 +1024,10 @@ public class InAppBrowser extends CordovaPlugin {
                     tab.dialog.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
                     tab.dialog.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
                 }
+
+                if (tab.bottomOffset > 0)
+                    tab.dialog.getWindow().setSoftInputMode(LayoutParams.SOFT_INPUT_ADJUST_PAN);
+
                 tab.dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
                 tab.dialog.setCancelable(true);
                 tab.dialog.setInAppBrowser(getInAppBrowser(), tab.id);
@@ -1305,30 +1311,72 @@ public class InAppBrowser extends CordovaPlugin {
                 }
 
                 if (!tab.fullscreen && tab.bottomOffset > 0) {
-                    LinearLayout bottom = new LinearLayout(cordova.getActivity());
+                    tab.bottom = new LinearLayout(cordova.getActivity());
                     RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(LayoutParams.MATCH_PARENT, tab.bottomOffset);
                     lp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
-                    bottom.setLayoutParams(lp);
-                    bottom.setId(Integer.valueOf(12));
-                    main.addView(bottom);
+                    tab.bottom.setLayoutParams(lp);
+                    tab.bottom.setId(Integer.valueOf(12));
+                    main.addView(tab.bottom);
+
+                    // ContentView is the root view of the layout of this activity/fragment
+/*                    View contentView = cordova.getActivity().findViewById(android.R.id.content);
+                    contentView.getViewTreeObserver().addOnGlobalLayoutListener(
+                            new ViewTreeObserver.OnGlobalLayoutListener() {
+                                @Override
+                                public void onGlobalLayout() {
+                                    Rect r = new Rect();
+                                    contentView.getWindowVisibleDisplayFrame(r);
+                                    int screenHeight = contentView.getRootView().getHeight();
+                                    //LOG.d(LOG_TAG, "screenHeight " + screenHeight);
+
+                                    // r.bottom is the position above soft keypad or device button.
+                                    // if keypad is shown, the r.bottom is smaller than that before.
+                                    int keypadHeight = screenHeight - r.bottom;
+
+                                    LOG.d(LOG_TAG, "keypadHeight = " + keypadHeight + " isKeyboardShowing " + isKeyboardShowing);
+
+                                    if (keypadHeight > screenHeight * 0.15) { // 0.15 ratio is perhaps enough to determine keypad height.
+                                        // keyboard is opened
+                                        if (!isKeyboardShowing) {
+                                            isKeyboardShowing = true;
+                                            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                                                @Override
+                                                public void run() {
+//                                                    hideBottom(tab);
+//                                                    tab.dialog.getWindow().getDecorView().requestLayout();
+//                                                    tab.dialog.getWindow().getDecorView().dispatchWindowVisibilityChanged(View.VISIBLE);
+                                                }
+                                            }, 1000);
+                                        }
+                                    } else {
+                                        // keyboard is closed
+                                        if (isKeyboardShowing) {
+                                            isKeyboardShowing = false;
+                                            //tab.bottom.setVisibility(View.VISIBLE);
+                                            LOG.d(LOG_TAG, "show bottom");
+                                        }
+                                    }
+                                }
+                            });
+*/
                 }
 
                 // Add our webview to our main view/layout
-                RelativeLayout webViewLayout = new RelativeLayout(cordova.getActivity());
-                RelativeLayout.LayoutParams wlp = new RelativeLayout.LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT);
+                tab.webViewLayout = new RelativeLayout(cordova.getActivity());
+                tab.wlp = new RelativeLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
                 if (tab.showLocationBar)
-                    wlp.addRule(RelativeLayout.BELOW, 10); // toolbar
+                    tab.wlp.addRule(RelativeLayout.BELOW, 10); // toolbar
                 else if (!tab.fullscreen && tab.topOffset > 0)
-                    wlp.addRule(RelativeLayout.BELOW, 11); // top offset
+                    tab.wlp.addRule(RelativeLayout.BELOW, 11); // top offset
                 if (!tab.fullscreen && tab.bottomOffset > 0)
-                    wlp.addRule(RelativeLayout.ABOVE, 12); // bottom offset
-                webViewLayout.setLayoutParams(wlp);
-                webViewLayout.addView(tab.inAppWebView);
-                main.addView(webViewLayout);
+                    tab.wlp.addRule(RelativeLayout.ABOVE, 12); // bottom offset
+                tab.webViewLayout.setLayoutParams(tab.wlp);
+                tab.webViewLayout.addView(tab.inAppWebView);
+                main.addView(tab.webViewLayout);
 
                 // Don't add the footer unless it's been enabled
                 if (tab.showFooter) {
-                    webViewLayout.addView(footer);
+                    tab.webViewLayout.addView(footer);
                 }
 
                 WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
