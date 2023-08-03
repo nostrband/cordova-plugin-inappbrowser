@@ -278,6 +278,21 @@ public class InAppBrowser extends CordovaPlugin {
                             } catch (android.content.ActivityNotFoundException e) {
                                 LOG.e(LOG_TAG, "Error dialing " + url + ": " + e.toString());
                             }
+                        } else if (url.startsWith("geo:")
+                                || url.startsWith(WebView.SCHEME_MAILTO)
+                                || url.startsWith("market:")
+                                || url.startsWith("intent:")
+                                || url.startsWith("lightning:")
+                                || url.startsWith("nostr:")
+                        ) {
+                            LOG.d(LOG_TAG, "start activity for " + url);
+                            try {
+                                Intent intent = new Intent(Intent.ACTION_VIEW);
+                                intent.setData(Uri.parse(url));
+                                cordova.getActivity().startActivity(intent);
+                            } catch (android.content.ActivityNotFoundException e) {
+                                LOG.e(LOG_TAG, "Error with " + url + ": " + e.toString());
+                            }
                         }
                         // load in InAppBrowser
                         else {
@@ -317,6 +332,7 @@ public class InAppBrowser extends CordovaPlugin {
                 LOG.e(LOG_TAG, "unexpected loadAfterBeforeload called without feature beforeload=yes");
             }
             final String url = args.getString(0);
+	    LOG.d(LOG_TAG, "load after beforeload "+url);
             this.cordova.getActivity().runOnUiThread(new Runnable() {
                 @SuppressLint("NewApi")
                 @Override
@@ -1593,7 +1609,7 @@ public class InAppBrowser extends CordovaPlugin {
 		       || url.startsWith("lightning:")
 		       || url.startsWith("nostr:")
 		       ) {
-		LOG.d(LOG_TAG, "start activity for " + url);
+                LOG.d(LOG_TAG, "start new activity for " + url);
                 try {
                     Intent intent = new Intent(Intent.ACTION_VIEW);
                     intent.setData(Uri.parse(url));
