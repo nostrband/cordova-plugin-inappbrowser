@@ -647,7 +647,8 @@ public class InAppBrowser extends CordovaPlugin {
             final int parentX = (int)event.getX();
             final int parentY = (int)event.getY() - getWindowOffset();
             LOG.d(LOG_TAG, "click x " + parentX + " y " + parentY);
-            if (parentX >= 0 && parentY >= 0 && event.getAction() == MotionEvent.ACTION_UP) {
+            if (parentX >= 0 && parentY >= 0 && event.getAction() == MotionEvent.ACTION_UP
+                && (parentY < tab.topOffset || parentY > (tab.topOffset + tab.webViewLayout.getHeight()))) {
                 try {
                     JSONObject obj = new JSONObject();
                     obj.put("type", CLICK_EVENT);
