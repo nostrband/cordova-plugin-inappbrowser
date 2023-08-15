@@ -96,6 +96,7 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String MENU_EVENT = "menu";
     private static final String CLICK_EVENT = "click";
     private static final String BLANK_EVENT = "blank";
+    private static final String ICON_EVENT = "icon";
     private static final String LOCATION = "location";
     private static final String ZOOM = "zoom";
     private static final String HIDDEN = "hidden";
@@ -659,6 +660,17 @@ public class InAppBrowser extends CordovaPlugin {
                     LOG.d(LOG_TAG, "Should never happen");
                 }
             }
+        }
+    }
+
+    public void onIcon(String tabId, String dataUrl) {
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put("type", ICON_EVENT);
+            obj.put("icon", dataUrl);
+            sendUpdate(tab, obj, true);
+        } catch (JSONException ex) {
+            LOG.d(LOG_TAG, "Should never happen");
         }
     }
 

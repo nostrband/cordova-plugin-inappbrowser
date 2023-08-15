@@ -25,8 +25,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 
 import android.annotation.TargetApi;
+import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Message;
+import android.util.Base64;
 import android.webkit.JsPromptResult;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -34,6 +36,8 @@ import android.webkit.WebStorage;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.GeolocationPermissions.Callback;
+
+import java.io.ByteArrayOutputStream;
 
 public class InAppChromeClient extends WebChromeClient {
 
@@ -193,4 +197,14 @@ public class InAppChromeClient extends WebChromeClient {
 
         return true;
     }
+
+    @Override
+    public void onReceivedIcon (WebView view, Bitmap icon) {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        icon.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream);
+        byte[] byteArray = byteArrayOutputStream.toByteArray();
+        String dataUrl = "data:image/png;base64," + Base64.encodeToString(byteArray, Base64.DEFAULT);
+        inAppBrowser.onIcon(tabId, dataUrl);
+    }
+
 }

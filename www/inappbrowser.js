@@ -36,6 +36,7 @@
             menu: channel.create('menu'),
             click: channel.create('click'),
             blank: channel.create('blank'),
+            icon: channel.create('icon'),
             customscheme: channel.create('customscheme'),
             message: channel.create('message')
         };
