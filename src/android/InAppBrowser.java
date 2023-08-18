@@ -48,6 +48,8 @@ import android.view.inputmethod.InputMethodManager;
 import android.webkit.CookieManager;
 import android.webkit.HttpAuthHandler;
 import android.webkit.JavascriptInterface;
+import android.webkit.ServiceWorkerClient;
+import android.webkit.ServiceWorkerController;
 import android.webkit.SslErrorHandler;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -323,6 +325,18 @@ public class InAppBrowser extends CordovaPlugin {
                 return false;
             }
             closeDialog(this.tab);
+        } else if (action.equals("reload")) {
+            if (!switchTab(args.optString(0))) {
+                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+                return false;
+            }
+            reload(this.tab);
+        } else if (action.equals("stop")) {
+            if (!switchTab(args.optString(0))) {
+                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+                return false;
+            }
+            stop(this.tab);
         } else if (action.equals("loadAfterBeforeload")) {
             if (!switchTab(args.optString(1))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
@@ -500,7 +514,10 @@ public class InAppBrowser extends CordovaPlugin {
      *                  which should be executed directly.
      */
     private void injectDeferredObject(String source, String jsWrapper) {
-        final Tab tab = this.tab;
+        injectDeferredObject(source, jsWrapper, this.tab);
+    }
+
+    private void injectDeferredObject(String source, String jsWrapper, Tab tab) {
         if (tab.inAppWebView != null) {
             String scriptToInject;
             if (jsWrapper != null) {
@@ -823,6 +840,13 @@ public class InAppBrowser extends CordovaPlugin {
         tab.inAppWebView.requestFocus();
     }
 
+    private void reload(Tab tab) {
+        tab.inAppWebView.reload();
+    }
+
+    private void stop(Tab tab) {
+        tab.inAppWebView.stopLoading();
+    }
 
     /**
      * Should we show the location bar?
@@ -1276,6 +1300,18 @@ public class InAppBrowser extends CordovaPlugin {
                 settings.setJavaScriptCanOpenWindowsAutomatically(true);
                 settings.setBuiltInZoomControls(tab.showZoomControls);
                 settings.setPluginState(android.webkit.WebSettings.PluginState.ON);
+                settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+
+                ServiceWorkerController swController = ServiceWorkerController.getInstance();
+                swController.setServiceWorkerClient(new ServiceWorkerClient() {
+                    @Override
+                    public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
+                        LOG.e(LOG_TAG, "in service worker. isMainFrame:"+request.isForMainFrame() +": " + request.getUrl());
+                        return null;
+                    }
+                });
+                swController.getServiceWorkerWebSettings().setAllowContentAccess(true);
+                swController.getServiceWorkerWebSettings().setBlockNetworkLoads(false);
 
                 // Add postMessage interface
                 class JsObject {
@@ -1768,7 +1804,7 @@ public class InAppBrowser extends CordovaPlugin {
             // LOG.d(LOG_TAG, "child page onPageFinished" + url);
 
             // Set the namespace for postMessage()
-            injectDeferredObject("window.webkit={messageHandlers:{cordova_iab:cordova_iab}}", null);
+            injectDeferredObject("window.webkit={messageHandlers:{cordova_iab:cordova_iab}}", null, tab);
 
             // CB-10395 InAppBrowser's WebView not storing cookies reliable to local device storage
             CookieManager.getInstance().flush();
