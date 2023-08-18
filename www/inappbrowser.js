@@ -61,6 +61,12 @@
         close: function (eventname) {
             exec(null, null, 'InAppBrowser', 'close', [...this._tabIdArgs()]);
         },
+        reload: function (eventname) {
+            exec(null, null, 'InAppBrowser', 'reload', [...this._tabIdArgs()]);
+        },
+        stop: function (eventname) {
+            exec(null, null, 'InAppBrowser', 'stop', [...this._tabIdArgs()]);
+        },
         show: function (eventname) {
             exec(null, null, 'InAppBrowser', 'show', [...this._tabIdArgs()]);
         },
