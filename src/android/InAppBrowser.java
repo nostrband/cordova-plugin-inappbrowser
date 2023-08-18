@@ -841,11 +841,21 @@ public class InAppBrowser extends CordovaPlugin {
     }
 
     private void reload(Tab tab) {
-        tab.inAppWebView.reload();
+        this.cordova.getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                tab.inAppWebView.reload();
+            }
+        });
     }
 
     private void stop(Tab tab) {
-        tab.inAppWebView.stopLoading();
+        this.cordova.getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                tab.inAppWebView.stopLoading();
+            }
+        });
     }
 
     /**
