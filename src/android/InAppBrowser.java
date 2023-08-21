@@ -130,6 +130,7 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String BOTTOM_OFFSET = "bottomoffset";
     private static final String DATABASE = "database";
     private static final String BEFOREBLANK = "beforeblank";
+    private static final String TRANSPARENT_LOADING = "transparentloading";
 
     private static final int TOOLBAR_HEIGHT = 48;
 
@@ -172,6 +173,8 @@ public class InAppBrowser extends CordovaPlugin {
         String database = "";
 
         boolean beforeblank = false;
+        boolean transparentLoading = false;
+
         InAppBrowserClient currentClient;
 
         LinearLayout bottom;
@@ -1018,6 +1021,10 @@ public class InAppBrowser extends CordovaPlugin {
             if (beforeblankSet != null) {
                 tab.beforeblank = beforeblankSet.equals("yes") ? true : false;
             }
+            String transparentLoadingSet = features.get(TRANSPARENT_LOADING);
+            if (transparentLoadingSet != null) {
+                tab.transparentLoading = transparentLoadingSet.equals("yes") ? true : false;
+            }
         }
 
         final CordovaWebView thatWebView = this.webView;
@@ -1280,6 +1287,8 @@ public class InAppBrowser extends CordovaPlugin {
 
                 // WebView
                 tab.inAppWebView = new WebView(cordova.getActivity());
+                if (tab.transparentLoading)
+                    tab.inAppWebView.setAlpha(0f);
                 tab.inAppWebView.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
                 tab.inAppWebView.setId(Integer.valueOf(8));
                 // File Chooser Implemented ChromeClient
@@ -1782,6 +1791,10 @@ public class InAppBrowser extends CordovaPlugin {
         @Override
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
             super.onPageStarted(view, url, favicon);
+            if (tab.transparentLoading)
+                view.setAlpha(1.0f);
+            LOG.d(LOG_TAG, "started");
+
             String newloc = "";
             if (url.startsWith("http:") || url.startsWith("https:") || url.startsWith("file:")) {
                 newloc = url;
