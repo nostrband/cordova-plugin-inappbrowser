@@ -58,20 +58,23 @@
             strUrl = urlutil.makeAbsolute(strUrl);
             exec(null, null, 'InAppBrowser', 'loadAfterBeforeload', [strUrl, ...this._tabIdArgs()]);
         },
-        close: function (eventname) {
+        close: function () {
             exec(null, null, 'InAppBrowser', 'close', [...this._tabIdArgs()]);
         },
-        reload: function (eventname) {
+        reload: function () {
             exec(null, null, 'InAppBrowser', 'reload', [...this._tabIdArgs()]);
         },
-        stop: function (eventname) {
+        stop: function () {
             exec(null, null, 'InAppBrowser', 'stop', [...this._tabIdArgs()]);
         },
-        show: function (eventname) {
+        show: function () {
             exec(null, null, 'InAppBrowser', 'show', [...this._tabIdArgs()]);
         },
-        hide: function (eventname) {
+        hide: function () {
             exec(null, null, 'InAppBrowser', 'hide', [...this._tabIdArgs()]);
+        },
+        screenshot: function (cb, scale, heightAspect) {
+            exec(cb, null, 'InAppBrowser', 'screenshot', [...this._tabIdArgs(), scale, heightAspect]);
         },
         addEventListener: function (eventname, f) {
             if (eventname in this.channels) {
@@ -83,7 +86,6 @@
                 this.channels[eventname].unsubscribe(f);
             }
         },
-
         executeScript: function (injectDetails, cb) {
             if (injectDetails.code) {
                 exec(cb, null, 'InAppBrowser', 'injectScriptCode', [injectDetails.code, !!cb, ...this._tabIdArgs()]);
