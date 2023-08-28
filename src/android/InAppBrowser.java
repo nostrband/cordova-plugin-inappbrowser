@@ -24,6 +24,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.Canvas;
 import android.os.Parcelable;
 import android.provider.Browser;
 import android.content.res.Resources;
@@ -35,6 +36,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
+import android.util.Base64;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -77,6 +79,7 @@ import org.apache.cordova.PluginResult;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -328,6 +331,12 @@ public class InAppBrowser extends CordovaPlugin {
                 return false;
             }
             closeDialog(this.tab);
+        } else if (action.equals("screenshot")) {
+            if (!switchTab(args.optString(0))) {
+                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+                return false;
+            }
+            screenshot(this.tab, callbackContext, args);
         } else if (action.equals("reload")) {
             if (!switchTab(args.optString(0))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
@@ -706,6 +715,40 @@ public class InAppBrowser extends CordovaPlugin {
                 closeDialog(tab);
             }
         }
+    }
+
+    private void screenshot(Tab tab, CallbackContext callbackContext, CordovaArgs args) throws JSONException {
+
+        final float scale = Float.valueOf(args.getString(1));
+        final float heightAspect = Float.valueOf(args.getString(2));
+
+        this.cordova.getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (tab == null || tab.inAppWebView == null) {
+                    return;
+                }
+
+                final WebView wv = tab.inAppWebView;
+                final float s = scale > 0.0f ? scale : 1.0f;
+                final int width = (int)(s * Math.min(wv.getWidth(), wv.getHeight()));
+                final int height = (int)(width * (heightAspect > 0 ? heightAspect : 1.0));
+                LOG.d(LOG_TAG, "screenshot width "+width+" height "+height+" scale "+s);
+                Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                Canvas canvas = new Canvas(bitmap);
+                canvas.scale(s, s);
+                wv.draw(canvas);
+
+                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream);
+                byte[] byteArray = byteArrayOutputStream.toByteArray();
+                String dataUrl = "data:image/png;base64," + Base64.encodeToString(byteArray, Base64.DEFAULT);
+
+                PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, dataUrl);
+                pluginResult.setKeepCallback(true);
+                callbackContext.sendPluginResult(pluginResult);
+            }
+        });
     }
 
     private void closeDialog(Tab tab) {
