@@ -693,14 +693,17 @@ public class InAppBrowser extends CordovaPlugin {
     }
 
     public void onIcon(String tabId, String dataUrl) {
-        try {
-            JSONObject obj = new JSONObject();
-            obj.put("type", ICON_EVENT);
-            obj.put("icon", dataUrl);
-            sendUpdate(tab, obj, true);
-        } catch (JSONException ex) {
-            LOG.d(LOG_TAG, "Should never happen");
-        }
+        final Tab tab = this.tabs.get(tabId);
+        if (tab != null) {
+	    try {
+		JSONObject obj = new JSONObject();
+		obj.put("type", ICON_EVENT);
+		obj.put("icon", dataUrl);
+		sendUpdate(tab, obj, true);
+	    } catch (JSONException ex) {
+		LOG.d(LOG_TAG, "Should never happen");
+	    }
+	}
     }
 
     /**
