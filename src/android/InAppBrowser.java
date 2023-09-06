@@ -107,6 +107,7 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String HIDDEN = "hidden";
     private static final String LOAD_START_EVENT = "loadstart";
     private static final String LOAD_STOP_EVENT = "loadstop";
+    private static final String LOAD_INIT_EVENT = "loadinit";
     private static final String LOAD_ERROR_EVENT = "loaderror";
     private static final String MESSAGE_EVENT = "message";
     private static final String CLEAR_ALL_CACHE = "clearcache";
@@ -679,6 +680,7 @@ public class InAppBrowser extends CordovaPlugin {
             LOG.d(LOG_TAG, "click x " + parentX + " y " + parentY);
             if (parentX >= 0 && parentY >= 0 && event.getAction() == MotionEvent.ACTION_UP
                 && (parentY < tab.topOffset || parentY > (tab.topOffset + tab.webViewLayout.getHeight()))) {
+                LOG.d(LOG_TAG, "sending click x " + parentX + " y " + parentY);
                 try {
                     JSONObject obj = new JSONObject();
                     obj.put("type", CLICK_EVENT);
@@ -1584,6 +1586,8 @@ public class InAppBrowser extends CordovaPlugin {
             if (!keepCallback) {
                 tab.callbackContext = null;
             }
+        } else {
+            LOG.d(LOG_TAG, "failed to sendUpdate, no callbackContext for tab", tab.id);
         }
     }
 
@@ -1868,12 +1872,28 @@ public class InAppBrowser extends CordovaPlugin {
             }
         }
 
+        public void onPageCommitVisible (WebView view,
+                                         String url) {
+            super.onPageCommitVisible(view, url);
+            injectDeferredObject("window.webkit={messageHandlers:{cordova_iab:cordova_iab}}", null, tab);
+
+            try {
+                JSONObject obj = new JSONObject();
+                obj.put("type", LOAD_INIT_EVENT);
+                obj.put("url", url);
+
+                sendUpdate(tab, obj, true);
+            } catch (JSONException ex) {
+                LOG.d(LOG_TAG, "Should never happen");
+            }
+        }
+
         public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
             // LOG.d(LOG_TAG, "child page onPageFinished" + url);
 
             // Set the namespace for postMessage()
-            injectDeferredObject("window.webkit={messageHandlers:{cordova_iab:cordova_iab}}", null, tab);
+//            injectDeferredObject("window.webkit={messageHandlers:{cordova_iab:cordova_iab}}", null, tab);
 
             // CB-10395 InAppBrowser's WebView not storing cookies reliable to local device storage
             CookieManager.getInstance().flush();
