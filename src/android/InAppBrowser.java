@@ -185,6 +185,8 @@ public class InAppBrowser extends CordovaPlugin {
 
         RelativeLayout webViewLayout;
         RelativeLayout.LayoutParams wlp;
+
+        boolean hidden = false;
     }
 
     private HashMap<String, Tab> tabs = new HashMap<String, Tab>();
@@ -431,6 +433,7 @@ public class InAppBrowser extends CordovaPlugin {
                 return false;
             }
             final Tab tab = this.tab;
+            LOG.d(LOG_TAG, "show tab "+tab.id);
             this.cordova.getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
@@ -454,6 +457,7 @@ public class InAppBrowser extends CordovaPlugin {
                 public void run() {
                     if (tab.dialog != null && !cordova.getActivity().isFinishing()) {
                         tab.dialog.hide();
+                        tab.hidden = true;
                     }
                 }
             });
@@ -481,6 +485,7 @@ public class InAppBrowser extends CordovaPlugin {
      */
     @Override
     public void onPause(boolean multitasking) {
+        LOG.d(LOG_TAG, "onPause tabs "+tabs.size());
         for (Tab tab : tabs.values()) {
             if (tab.shouldPauseInAppBrowser) {
                 tab.inAppWebView.onPause();
@@ -493,6 +498,7 @@ public class InAppBrowser extends CordovaPlugin {
      */
     @Override
     public void onResume(boolean multitasking) {
+        LOG.d(LOG_TAG, "onResume tabs "+tabs.size());
         for (Tab tab : tabs.values()) {
             if (tab.shouldPauseInAppBrowser) {
                 tab.inAppWebView.onResume();
@@ -806,6 +812,7 @@ public class InAppBrowser extends CordovaPlugin {
             public void run() {
                 if (tab.dialog != null && !cordova.getActivity().isFinishing()) {
                     tab.dialog.hide();
+                    tab.hidden = true;
 
                     try {
                         JSONObject obj = new JSONObject();
@@ -1398,6 +1405,15 @@ public class InAppBrowser extends CordovaPlugin {
                 settings.setMediaPlaybackRequiresUserGesture(tab.mediaPlaybackRequiresUserGesture);
                 tab.inAppWebView.addJavascriptInterface(new JsObject(), "cordova_iab");
 
+                // Add webln
+//                class WebLNObject {
+//                    @JavascriptInterface
+//                    public void enable() {
+//                        Log.d(LOG_TAG, "webln enable called early");
+//                    }
+//                }
+//                tab.inAppWebView.addJavascriptInterface(new WebLNObject(), "webln");
+
                 String overrideUserAgent = preferences.getString("OverrideUserAgent", null);
                 String appendUserAgent = preferences.getString("AppendUserAgent", null);
 
@@ -1556,6 +1572,7 @@ public class InAppBrowser extends CordovaPlugin {
                 // Show() needs to be called to cause the URL to be loaded
                 if (tab.openWindowHidden && tab.dialog != null) {
                     tab.dialog.hide();
+                    tab.hidden = true;
                 }
             }
         };
@@ -1724,8 +1741,8 @@ public class InAppBrowser extends CordovaPlugin {
 		       || url.startsWith(WebView.SCHEME_MAILTO)
 		       || url.startsWith("market:")
 		       || url.startsWith("intent:")
-		       || url.startsWith("lightning:")
-		       || url.startsWith("nostr:")
+//		       || url.startsWith("lightning:")
+//		       || url.startsWith("nostr:")
 		       ) {
                 LOG.d(LOG_TAG, "start new activity for " + url);
                 try {

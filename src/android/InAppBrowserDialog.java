@@ -21,8 +21,11 @@ package org.apache.cordova.inappbrowser;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
+import android.view.ContextMenu;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.graphics.Rect;
+import android.view.View;
 
 import org.json.JSONException;
 import org.json.JSONObject;
