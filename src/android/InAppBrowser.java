@@ -148,6 +148,8 @@ public class InAppBrowser extends CordovaPlugin {
         WebView inAppWebView;
         EditText edittext;
         CallbackContext callbackContext;
+
+        boolean clearHistoryOnPageStart = false;
         boolean showLocationBar = true;
         boolean showZoomControls = true;
         boolean openWindowHidden = false;
@@ -353,7 +355,10 @@ public class InAppBrowser extends CordovaPlugin {
             this.cordova.getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    if (tab.transparentLoading)
+                        tab.inAppWebView.setAlpha(0f);
                     tab.inAppWebView.loadUrl(url);
+                    tab.clearHistoryOnPageStart = true;
                 }
             });
         } else if (action.equals("reload")) {
@@ -867,6 +872,7 @@ public class InAppBrowser extends CordovaPlugin {
     public boolean canGoBack(String tabId) {
         final Tab tab = this.tabs.get(tabId);
         if (tab != null) {
+            LOG.d(LOG_TAG, "can go back "+tab.inAppWebView.canGoBack());
             return tab.inAppWebView.canGoBack();
         } else {
             return false;
@@ -1866,7 +1872,7 @@ public class InAppBrowser extends CordovaPlugin {
 
         /*
          * onPageStarted fires the LOAD_START_EVENT
-         *
+         *clearHistory
          * @param view
          * @param url
          * @param favicon
@@ -1878,11 +1884,16 @@ public class InAppBrowser extends CordovaPlugin {
                 view.setAlpha(1.0f);
             LOG.d(LOG_TAG, "started");
 
+            if (tab.clearHistoryOnPageStart) {
+                view.clearHistory();
+                tab.clearHistoryOnPageStart = false;
+            }
+
             String newloc = "";
             if (url.startsWith("http:") || url.startsWith("https:") || url.startsWith("file:")) {
                 newloc = url;
             }
-            else
+            else if (!url.equals("about:blank"))
             {
                 // Assume that everything is HTTP at this point, because if we don't specify,
                 // it really should be.  Complain loudly about this!!!
