@@ -62,6 +62,9 @@
     close: function () {
       exec(null, null, 'InAppBrowser', 'close', [...this._tabIdArgs()]);
     },
+    navigate: function (url) {
+      exec(null, null, 'InAppBrowser', 'navigate', [url, ...this._tabIdArgs()]);
+    },
     reload: function () {
       exec(null, null, 'InAppBrowser', 'reload', [...this._tabIdArgs()]);
     },

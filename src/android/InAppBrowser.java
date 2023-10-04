@@ -297,10 +297,13 @@ public class InAppBrowser extends CordovaPlugin {
                                 || url.startsWith("lightning:")
                                 || url.startsWith("nostr:")
                         ) {
-                            LOG.d(LOG_TAG, "start activity for " + url);
+                            String data = url;
+                            if (url.startsWith("intent:"))
+                                data = url.substring("intent:".length());
+                            LOG.d(LOG_TAG, "start activity for " + data);
                             try {
                                 Intent intent = new Intent(Intent.ACTION_VIEW);
-                                intent.setData(Uri.parse(url));
+                                intent.setData(Uri.parse(data));
                                 cordova.getActivity().startActivity(intent);
                             } catch (android.content.ActivityNotFoundException e) {
                                 LOG.e(LOG_TAG, "Error with " + url + ": " + e.toString());
@@ -340,6 +343,19 @@ public class InAppBrowser extends CordovaPlugin {
                 return false;
             }
             screenshot(this.tab, callbackContext, args);
+        } else if (action.equals("navigate")) {
+            if (!switchTab(args.optString(1))) {
+                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+                return false;
+            }
+            final Tab tab = this.tab;
+            final String url = args.getString(0);
+            this.cordova.getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    tab.inAppWebView.loadUrl(url);
+                }
+            });
         } else if (action.equals("reload")) {
             if (!switchTab(args.optString(0))) {
                 LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
@@ -1180,8 +1196,8 @@ public class InAppBrowser extends CordovaPlugin {
                     tab.dialog.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
                 }
 
-                if (tab.bottomOffset > 0)
-                    tab.dialog.getWindow().setSoftInputMode(LayoutParams.SOFT_INPUT_ADJUST_PAN);
+//                if (tab.bottomOffset > 0)
+//                    tab.dialog.getWindow().setSoftInputMode(LayoutParams.SOFT_INPUT_ADJUST_PAN);
 
                 tab.dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
                 tab.dialog.setCancelable(true);
@@ -1740,7 +1756,7 @@ public class InAppBrowser extends CordovaPlugin {
             } else if (url.startsWith("geo:")
 		       || url.startsWith(WebView.SCHEME_MAILTO)
 		       || url.startsWith("market:")
-		       || url.startsWith("intent:")
+//		       || url.startsWith("intent:")
 //		       || url.startsWith("lightning:")
 //		       || url.startsWith("nostr:")
 		       ) {
