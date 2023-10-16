@@ -135,6 +135,7 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String DATABASE = "database";
     private static final String BEFOREBLANK = "beforeblank";
     private static final String TRANSPARENT_LOADING = "transparentloading";
+    private static final String PAUSE_ON_HIDE = "pauseonhide";
 
     private static final int TOOLBAR_HEIGHT = 48;
 
@@ -180,6 +181,7 @@ public class InAppBrowser extends CordovaPlugin {
 
         boolean beforeblank = false;
         boolean transparentLoading = false;
+        boolean pauseOnHide = false;
 
         InAppBrowserClient currentClient;
 
@@ -461,6 +463,8 @@ public class InAppBrowser extends CordovaPlugin {
                     if (tab.dialog != null && !cordova.getActivity().isFinishing()) {
                         if (tab.bottom != null)
                             tab.bottom.setVisibility(View.VISIBLE);
+                        if (tab.pauseOnHide)
+                            tab.inAppWebView.onResume();
                         tab.dialog.show();
                     }
                 }
@@ -478,6 +482,8 @@ public class InAppBrowser extends CordovaPlugin {
                 public void run() {
                     if (tab.dialog != null && !cordova.getActivity().isFinishing()) {
                         tab.dialog.hide();
+                        if (tab.pauseOnHide)
+                            tab.inAppWebView.onPause();
                         tab.hidden = true;
                     }
                 }
@@ -1102,6 +1108,10 @@ public class InAppBrowser extends CordovaPlugin {
             if (transparentLoadingSet != null) {
                 tab.transparentLoading = transparentLoadingSet.equals("yes") ? true : false;
             }
+            String pauseOnHideSet = features.get(PAUSE_ON_HIDE);
+            if (pauseOnHideSet != null) {
+                tab.pauseOnHide = pauseOnHideSet.equals("yes") ? true : false;
+            }
         }
 
         final CordovaWebView thatWebView = this.webView;
@@ -1595,6 +1605,8 @@ public class InAppBrowser extends CordovaPlugin {
                 if (tab.openWindowHidden && tab.dialog != null) {
                     tab.dialog.hide();
                     tab.hidden = true;
+                    if (tab.pauseOnHide)
+                        tab.inAppWebView.onPause();
                 }
             }
         };
