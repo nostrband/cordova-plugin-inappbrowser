@@ -336,20 +336,23 @@ public class InAppBrowser extends CordovaPlugin {
                 }
             });
         } else if (action.equals("close")) {
-            if (!switchTab(args.optString(0))) {
-                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+            final String tabId = args.optString(0);
+            if (!switchTab(tabId)) {
+                LOG.e(LOG_TAG, "unknown tab " + tabId);
                 return false;
             }
             closeDialog(this.tab);
         } else if (action.equals("screenshot")) {
-            if (!switchTab(args.optString(0))) {
-                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+            final String tabId = args.optString(0);
+            if (!switchTab(tabId)) {
+                LOG.e(LOG_TAG, "unknown tab " + tabId);
                 return false;
             }
             screenshot(this.tab, callbackContext, args);
         } else if (action.equals("navigate")) {
-            if (!switchTab(args.optString(1))) {
-                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+            final String tabId = args.optString(1);
+            if (!switchTab(tabId)) {
+                LOG.e(LOG_TAG, "unknown tab " + tabId);
                 return false;
             }
             final Tab tab = this.tab;
@@ -364,20 +367,23 @@ public class InAppBrowser extends CordovaPlugin {
                 }
             });
         } else if (action.equals("reload")) {
-            if (!switchTab(args.optString(0))) {
-                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+            final String tabId = args.optString(0);
+            if (!switchTab(tabId)) {
+                LOG.e(LOG_TAG, "unknown tab " + tabId);
                 return false;
             }
             reload(this.tab);
         } else if (action.equals("stop")) {
-            if (!switchTab(args.optString(0))) {
-                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+            final String tabId = args.optString(0);
+            if (!switchTab(tabId)) {
+                LOG.e(LOG_TAG, "unknown tab " + tabId);
                 return false;
             }
             stop(this.tab);
         } else if (action.equals("loadAfterBeforeload")) {
-            if (!switchTab(args.optString(1))) {
-                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+            final String tabId = args.optString(1);
+            if (!switchTab(tabId)) {
+                LOG.e(LOG_TAG, "unknown tab " + tabId);
                 return false;
             }
             final Tab tab = this.tab;
@@ -385,7 +391,7 @@ public class InAppBrowser extends CordovaPlugin {
                 LOG.e(LOG_TAG, "unexpected loadAfterBeforeload called without feature beforeload=yes");
             }
             final String url = args.getString(0);
-	    LOG.d(LOG_TAG, "load after beforeload "+url);
+    	    LOG.d(LOG_TAG, "load after beforeload "+url);
             this.cordova.getActivity().runOnUiThread(new Runnable() {
                 @SuppressLint("NewApi")
                 @Override
@@ -400,8 +406,9 @@ public class InAppBrowser extends CordovaPlugin {
                 }
             });
         } else if (action.equals("injectScriptCode")) {
-            if (!switchTab(args.optString(2))) {
-                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+            final String tabId = args.optString(2);
+            if (!switchTab(tabId)) {
+                LOG.e(LOG_TAG, "unknown tab " + tabId);
                 return false;
             }
 
@@ -412,8 +419,9 @@ public class InAppBrowser extends CordovaPlugin {
             }
             injectDeferredObject(args.getString(0), jsWrapper);
         } else if (action.equals("injectScriptFile")) {
-            if (!switchTab(args.optString(2))) {
-                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+            final String tabId = args.optString(2);
+            if (!switchTab(tabId)) {
+                LOG.e(LOG_TAG, "unknown tab " + tabId);
                 return false;
             }
 
@@ -425,8 +433,9 @@ public class InAppBrowser extends CordovaPlugin {
             }
             injectDeferredObject(args.getString(0), jsWrapper);
         } else if (action.equals("injectStyleCode")) {
-            if (!switchTab(args.optString(2))) {
-                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+            final String tabId = args.optString(2);
+            if (!switchTab(tabId)) {
+                LOG.e(LOG_TAG, "unknown tab " + tabId);
                 return false;
             }
 
@@ -438,8 +447,9 @@ public class InAppBrowser extends CordovaPlugin {
             }
             injectDeferredObject(args.getString(0), jsWrapper);
         } else if (action.equals("injectStyleFile")) {
-            if (!switchTab(args.optString(2))) {
-                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+            final String tabId = args.optString(2);
+            if (!switchTab(tabId)) {
+                LOG.e(LOG_TAG, "unknown tab " + tabId);
                 return false;
             }
 
@@ -451,8 +461,9 @@ public class InAppBrowser extends CordovaPlugin {
             }
             injectDeferredObject(args.getString(0), jsWrapper);
         } else if (action.equals("show")) {
-            if (!switchTab(args.optString(0))) {
-                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+            final String tabId = args.optString(0);
+            if (!switchTab(tabId)) {
+                LOG.e(LOG_TAG, "unknown tab " + tabId);
                 return false;
             }
             final Tab tab = this.tab;
@@ -469,12 +480,13 @@ public class InAppBrowser extends CordovaPlugin {
                     }
                 }
             });
-            PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
-            pluginResult.setKeepCallback(true);
-            tab.callbackContext.sendPluginResult(pluginResult);
+//            PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
+//            pluginResult.setKeepCallback(true);
+//            tab.callbackContext.sendPluginResult(pluginResult);
         } else if (action.equals("hide")) {
-            if (!switchTab(args.optString(0))) {
-                LOG.e(LOG_TAG, "unknown tab " + args.optString(1));
+            final String tabId = args.optString(0);
+            if (!switchTab(tabId)) {
+                LOG.e(LOG_TAG, "unknown tab " + tabId);
                 return false;
             }
             this.cordova.getActivity().runOnUiThread(new Runnable() {
@@ -488,9 +500,9 @@ public class InAppBrowser extends CordovaPlugin {
                     }
                 }
             });
-            PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
-            pluginResult.setKeepCallback(true);
-            tab.callbackContext.sendPluginResult(pluginResult);
+//            PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
+//            pluginResult.setKeepCallback(true);
+//            tab.callbackContext.sendPluginResult(pluginResult);
         } else {
             return false;
         }
@@ -783,7 +795,7 @@ public class InAppBrowser extends CordovaPlugin {
                 String dataUrl = "data:image/png;base64," + Base64.encodeToString(byteArray, Base64.DEFAULT);
 
                 PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, dataUrl);
-                pluginResult.setKeepCallback(true);
+                pluginResult.setKeepCallback(false);
                 callbackContext.sendPluginResult(pluginResult);
             }
         });
